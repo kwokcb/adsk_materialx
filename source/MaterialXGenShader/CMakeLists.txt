@@ -22,6 +22,12 @@ set_target_properties(
     VERSION "${MATERIALX_LIBRARY_VERSION}"
     SOVERSION "${MATERIALX_MAJOR_VERSION}")
 
+target_link_libraries(
+    MaterialXGenShader
+    MaterialXCore
+    MaterialXFormat
+    ${CMAKE_DL_LIBS})
+
 target_include_directories(MaterialXGenShader
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../>
