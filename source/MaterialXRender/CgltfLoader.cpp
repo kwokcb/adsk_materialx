@@ -454,11 +454,6 @@ NodePtr createTexture(DocumentPtr& doc, const string & nodeName, const string & 
     return newTexture;
 }
 
-ElementPredicate xincludeElementPredicate()
-{
-   
-}
-
 }
 
 void CgltfLoader::loadMaterials(void *vdata)
@@ -551,6 +546,26 @@ void CgltfLoader::loadMaterials(void *vdata)
                     {
                         baseColorInput->setValueString(color3Value->getValueString());
                     }
+                }
+
+                // Normal texture
+                InputPtr normalInput = shaderNode->getInput("normal");
+
+                cgltf_texture_view& normalView = material->normal_texture;
+                cgltf_texture* normalTexture = normalView.texture;
+                if (normalTexture && normalTexture->image)
+                {
+                    string uri = normalTexture->image->uri ? normalTexture->image->uri : EMPTY_STRING;
+                    NodePtr newTexture = createTexture(_materials, "image_normal", uri,
+                        "vector3", EMPTY_STRING);
+
+                    string normalMapName = _materials->createValidChildName("pbr_normalmap");
+                    NodePtr normalMap = _materials->addNode("normalmap", normalMapName, "vector3");
+                    addDefaultInputs(normalMap);
+                    normalMap->getInput("in")->setAttribute("nodename", newTexture->getName());
+                    normalMap->getInput("in")->setType("vector3");
+
+                    normalInput->setAttribute("nodename", normalMap->getName());
                 }
 
                 // Set metalic value
