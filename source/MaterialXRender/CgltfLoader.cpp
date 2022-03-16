@@ -446,10 +446,11 @@ NodePtr createTexture(DocumentPtr& doc, const string & nodeName, const string & 
     string newTextureName = doc->createValidChildName(nodeName);
     NodePtr newTexture = doc->addNode("tiledimage", newTextureName, textureType);
     addDefaultInputs(newTexture);
-    newTexture->getInput("file")->setValue(fileName, "filename");
+    InputPtr fileInput = newTexture->getInput("file");
+    fileInput->setValue(fileName, "filename");
     if (!colorspace.empty())
     {
-        newTexture->setAttribute("colorspace", colorspace);
+        fileInput->setAttribute("colorspace", colorspace);
     }
     return newTexture;
 }
@@ -539,7 +540,7 @@ void CgltfLoader::loadMaterials(void *vdata)
                     {
                         string uri = texture->image->uri ? texture->image->uri : EMPTY_STRING;
                         NodePtr newTexture = createTexture(_materials, "image_basecolor", uri,
-                                        "color3", "srb_texture");
+                                        "color3", "srgb_texture");
                         baseColorInput->setAttribute("nodename", newTexture->getName());
                     }
                     else
