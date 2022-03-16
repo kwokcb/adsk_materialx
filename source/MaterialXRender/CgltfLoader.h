@@ -9,6 +9,7 @@
 /// @file 
 /// GLTF format loader using the Cgltf library
 
+#include <MaterialXCore/Document.h>
 #include <MaterialXRender/GeometryHandler.h>
 
 MATERIALX_NAMESPACE_BEGIN
@@ -35,6 +36,9 @@ class MX_RENDER_API CgltfLoader : public GeometryLoader
     bool load(const FilePath& filePath, MeshList& meshList, bool texcoordVerticalFlip=false) override;
 
   private:
+    void loadMaterials(void *);
+
+    DocumentPtr _materials;
     unsigned int _debugLevel;
 };
 

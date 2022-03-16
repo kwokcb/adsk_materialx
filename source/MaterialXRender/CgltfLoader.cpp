@@ -3,6 +3,10 @@
 // All rights reserved.  See LICENSE.txt for license.
 //
 
+#include <MaterialXCore/Value.h>
+#include <MaterialXCore/Types.h>
+#include <MaterialXFormat/XmlIo.h>
+#include <MaterialXFormat/Util.h>
 #include <MaterialXRender/CgltfLoader.h>
 
 #if defined(__GNUC__)
@@ -395,6 +399,8 @@ bool CgltfLoader::load(const FilePath& filePath, MeshList& meshList, bool texcoo
                 }
             }
         }
+
+        loadMaterials(data);
     }
 
     if (data)
@@ -403,6 +409,191 @@ bool CgltfLoader::load(const FilePath& filePath, MeshList& meshList, bool texcoo
     }
 
     return true;
+}
+
+namespace
+{
+
+void addDefaultInputs(NodePtr& shaderNode)
+{
+    StringVec nonInstanceAttributes = { ValueElement::DOC_ATTRIBUTE, ValueElement::INTERFACE_NAME_ATTRIBUTE,
+                                        ValueElement::ENUM_ATTRIBUTE, ValueElement::ENUM_VALUES_ATTRIBUTE, 
+                                        ValueElement::UI_NAME_ATTRIBUTE, ValueElement::UI_FOLDER_ATTRIBUTE, ValueElement::UI_MIN_ATTRIBUTE,
+                                        ValueElement::UI_MAX_ATTRIBUTE, ValueElement::UI_SOFT_MIN_ATTRIBUTE, ValueElement::UI_SOFT_MAX_ATTRIBUTE,
+                                        ValueElement::UI_STEP_ATTRIBUTE, ValueElement::UI_ADVANCED_ATTRIBUTE, ValueElement::UNIFORM_ATTRIBUTE };
+
+    NodeDefPtr nodeNodeDef = shaderNode->getNodeDef();
+    if (nodeNodeDef)
+    {
+        for (ValueElementPtr nodeDefValueElem : nodeNodeDef->getActiveValueElements())
+        {
+            const std::string& valueElemName = nodeDefValueElem->getName();
+            InputPtr newInput = shaderNode->addInputFromNodeDef(valueElemName);
+            if (newInput)
+            {
+                for (auto nonInstanceAttribute : nonInstanceAttributes)
+                {
+                    newInput->removeAttribute(nonInstanceAttribute);
+                }
+            }
+        }
+    }
+}
+
+void createTexture(DocumentPtr& doc, const string & nodeName, const string & fileName,
+                   const string & textureType, const string & colorspace, InputPtr& connectToInput)
+{
+    string baseTextureName = doc->createValidChildName(nodeName);
+    NodePtr baseTexture = doc->addNode("tiledimage", baseTextureName, textureType);
+    addDefaultInputs(baseTexture);
+    baseTexture->getInput("file")->setValue(fileName, "filename");
+    if (!colorspace.empty())
+    {
+        baseTexture->setAttribute("colorspace", colorspace);
+    }
+    if (connectToInput)
+    {
+        connectToInput->setAttribute("nodename", baseTexture->getName());
+    }
+}
+
+ElementPredicate xincludeElementPredicate()
+{
+   
+}
+
+}
+
+void CgltfLoader::loadMaterials(void *vdata)
+{
+    cgltf_data* data = static_cast<cgltf_data*>(vdata);
+
+    // Scan materials
+    /*
+    * typedef struct cgltf_material
+    {
+	    char* name;
+	    cgltf_bool has_pbr_metallic_roughness;
+	    cgltf_bool has_pbr_specular_glossiness;
+	    cgltf_bool has_clearcoat;
+	    cgltf_bool has_transmission;
+	    cgltf_bool has_volume;
+	    cgltf_bool has_ior;
+	    cgltf_bool has_specular;
+	    cgltf_bool has_sheen;
+	    cgltf_bool has_emissive_strength;
+	    cgltf_pbr_metallic_roughness pbr_metallic_roughness;
+	    cgltf_pbr_specular_glossiness pbr_specular_glossiness;
+	    cgltf_clearcoat clearcoat;
+	    cgltf_ior ior;
+	    cgltf_specular specular;
+	    cgltf_sheen sheen;
+	    cgltf_transmission transmission;
+	    cgltf_volume volume;
+	    cgltf_emissive_strength emissive_strength;
+	    cgltf_texture_view normal_texture;
+	    cgltf_texture_view occlusion_texture;
+	    cgltf_texture_view emissive_texture;
+	    cgltf_float emissive_factor[3];
+	    cgltf_alpha_mode alpha_mode;
+	    cgltf_float alpha_cutoff;
+	    cgltf_bool double_sided;
+	    cgltf_bool unlit;
+	    cgltf_extras extras;
+	    cgltf_size extensions_count;
+	    cgltf_extension* extensions;
+    } cgltf_material;
+    */
+    if (data->materials_count)
+    {
+        _materials = Document::createDocument<Document>();
+        _materials->importLibrary(_definitions);
+    }
+    size_t materialId = 0;
+    for (size_t m = 0; m < data->materials_count; m++)
+    {
+        cgltf_material* material = &(data->materials[m]);
+        if (material)
+        {
+            // Create a default gltf_pbr node
+            string shaderName = material->name ? material->name : "SHADER_GLTF_PBR_" + std::to_string(materialId);
+            shaderName = _materials->createValidChildName(shaderName);
+            NodePtr shaderNode = _materials->addNode("gltf_pbr", shaderName, "surfaceshader");
+            addDefaultInputs(shaderNode);
+
+            // Create a surface material for the shader node
+            string materialName = material->name ? "Material_" + string(material->name) : "MATERIAL_GLTF_PBR" + std::to_string(materialId);
+            NodePtr materialNode = _materials->addNode("surfacematerial", materialName, "material");
+            InputPtr shaderInput = materialNode->addInput("surfaceshader", "surfaceshader");
+            shaderInput->setAttribute("nodename", shaderNode->getName());
+
+            if (material->has_pbr_metallic_roughness)
+            {
+                cgltf_pbr_metallic_roughness& roughness = material->pbr_metallic_roughness;
+
+                // Set base color. Q: what to do with alpha = baseColorFactor[3];
+                Color3 baseColorFactor(roughness.base_color_factor[0],
+                    roughness.base_color_factor[1],
+                    roughness.base_color_factor[2]);
+                ValuePtr color3Value = Value::createValue<Color3>(baseColorFactor);
+                InputPtr baseColorInput = shaderNode->getInput("base_color");
+                if (baseColorInput)
+                {
+                    // TODO: Handle factor + texture being present along
+                    // with other texture parameters
+                    cgltf_texture_view& textureView = roughness.base_color_texture;
+                    cgltf_texture* texture = textureView.texture;
+                    if (texture && texture->image)
+                    {
+                        string uri = texture->image->uri ? texture->image->uri : EMPTY_STRING;
+                        createTexture(_materials, "image_basecolor", uri,
+                                      "color3", "srb_texture", baseColorInput);
+                    }
+                    else
+                    {
+                        baseColorInput->setValueString(color3Value->getValueString());
+                    }
+                }
+
+                // Set metalic value
+                shaderNode->getInput("metallic")->setValue(roughness.metallic_factor);;
+
+                // Set roughness value
+                shaderNode->getInput("roughness")->setValue(roughness.roughness_factor);;
+            }
+
+            // Set emissive value
+            if (material->has_emissive_strength)
+            {
+                cgltf_emissive_strength& emissive = material->emissive_strength;
+                InputPtr emissiveInput = shaderNode->getInput("emissive");
+                cgltf_texture_view& textureView = material->emissive_texture;
+                cgltf_texture* texture = textureView.texture;
+                if (texture && texture->image)
+                {
+                    string uri = texture->image->uri ? texture->image->uri : EMPTY_STRING;
+                    createTexture(_materials, "image_emission", uri,
+                        "float", "srb_texture", emissiveInput);
+                }
+                else
+                {
+                    emissiveInput->setValue(emissive.emissive_strength);
+                }
+            }
+        }
+    }
+
+    XmlWriteOptions writeOptions;
+    writeOptions.elementPredicate = [](ConstElementPtr elem)
+                                    {
+                                        if (elem->hasSourceUri())
+                                        {
+                                            return false;
+                                        }
+                                        return true;
+                                    };
+
+    writeToXmlFile(_materials, "test_materials.mtlx", &writeOptions);
 }
 
 MATERIALX_NAMESPACE_END

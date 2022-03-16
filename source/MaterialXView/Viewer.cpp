@@ -356,6 +356,7 @@ void Viewer::initialize()
     // Create geometry handler.
     mx::TinyObjLoaderPtr objLoader = mx::TinyObjLoader::create();
     mx::CgltfLoaderPtr gltfLoader = mx::CgltfLoader::create();
+    gltfLoader->setDefinitions(_stdLib);
     _geometryHandler = mx::GeometryHandler::create();
     _geometryHandler->addLoader(objLoader);
     _geometryHandler->addLoader(gltfLoader);
