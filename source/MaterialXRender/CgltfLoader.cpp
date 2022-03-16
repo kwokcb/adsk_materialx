@@ -440,21 +440,18 @@ void addDefaultInputs(NodePtr& shaderNode)
     }
 }
 
-void createTexture(DocumentPtr& doc, const string & nodeName, const string & fileName,
-                   const string & textureType, const string & colorspace, InputPtr& connectToInput)
+NodePtr createTexture(DocumentPtr& doc, const string & nodeName, const string & fileName,
+                   const string & textureType, const string & colorspace)
 {
-    string baseTextureName = doc->createValidChildName(nodeName);
-    NodePtr baseTexture = doc->addNode("tiledimage", baseTextureName, textureType);
-    addDefaultInputs(baseTexture);
-    baseTexture->getInput("file")->setValue(fileName, "filename");
+    string newTextureName = doc->createValidChildName(nodeName);
+    NodePtr newTexture = doc->addNode("tiledimage", newTextureName, textureType);
+    addDefaultInputs(newTexture);
+    newTexture->getInput("file")->setValue(fileName, "filename");
     if (!colorspace.empty())
     {
-        baseTexture->setAttribute("colorspace", colorspace);
+        newTexture->setAttribute("colorspace", colorspace);
     }
-    if (connectToInput)
-    {
-        connectToInput->setAttribute("nodename", baseTexture->getName());
-    }
+    return newTexture;
 }
 
 ElementPredicate xincludeElementPredicate()
@@ -546,8 +543,9 @@ void CgltfLoader::loadMaterials(void *vdata)
                     if (texture && texture->image)
                     {
                         string uri = texture->image->uri ? texture->image->uri : EMPTY_STRING;
-                        createTexture(_materials, "image_basecolor", uri,
-                                      "color3", "srb_texture", baseColorInput);
+                        NodePtr newTexture = createTexture(_materials, "image_basecolor", uri,
+                                        "color3", "srb_texture");
+                        baseColorInput->setAttribute("nodename", newTexture->getName());
                     }
                     else
                     {
@@ -556,29 +554,74 @@ void CgltfLoader::loadMaterials(void *vdata)
                 }
 
                 // Set metalic value
-                shaderNode->getInput("metallic")->setValue(roughness.metallic_factor);;
+                InputPtr metallicInput = shaderNode->getInput("metallic");
 
                 // Set roughness value
-                shaderNode->getInput("roughness")->setValue(roughness.roughness_factor);;
-            }
+                InputPtr roughnessInput = shaderNode->getInput("roughness");
 
-            // Set emissive value
-            if (material->has_emissive_strength)
-            {
-                cgltf_emissive_strength& emissive = material->emissive_strength;
-                InputPtr emissiveInput = shaderNode->getInput("emissive");
-                cgltf_texture_view& textureView = material->emissive_texture;
+                // Occlusion
+                InputPtr occlusionInput = shaderNode->getInput("occlusion");                
+
+                // Check for occlusion/metallic/roughness texture
+                cgltf_texture_view& textureView = roughness.metallic_roughness_texture;
                 cgltf_texture* texture = textureView.texture;
                 if (texture && texture->image)
                 {
                     string uri = texture->image->uri ? texture->image->uri : EMPTY_STRING;
-                    createTexture(_materials, "image_emission", uri,
-                        "float", "srb_texture", emissiveInput);
+                    NodePtr textureNode = createTexture(_materials, "image_orm", uri,
+                                                        "vector3", EMPTY_STRING);
+
+                    // Add extraction nodes. Note that order matters
+                    StringVec extractNames =
+                    {
+                            _materials->createValidChildName("extract_occlusion"),
+                            _materials->createValidChildName("extract_roughness"),
+                            _materials->createValidChildName("extract_metallic")
+                    };
+                    std::vector<InputPtr> inputs =
+                    {
+                        occlusionInput, roughnessInput, metallicInput
+                    };
+                    for (size_t i = 0; i < extractNames.size(); i++)
+                    {
+                        NodePtr extractNode = _materials->addNode("extract", extractNames[i], "float");
+                        addDefaultInputs(extractNode);
+                        extractNode->getInput("in")->setAttribute("nodename", textureNode->getName());
+                        extractNode->getInput("in")->setType("vector3");
+                        extractNode->getInput("index")->setAttribute("value", std::to_string(i));
+                        if (inputs[i])
+                        {
+                            inputs[i]->setAttribute("nodename", extractNode->getName());
+                            inputs[i]->setType("float");
+                        }
+                    }
                 }
                 else
                 {
-                    emissiveInput->setValue(emissive.emissive_strength);
+                    metallicInput->setValue<float>(roughness.metallic_factor);;
+                    roughnessInput->setValue<float>(roughness.roughness_factor);
                 }
+            }
+
+            // Set emissive factor value
+            Color3 emissiveFactor(material->emissive_factor[0],
+                                  material->emissive_factor[1],
+                                  material->emissive_factor[2]);
+            ValuePtr color3Value = Value::createValue<Color3>(emissiveFactor);
+
+            InputPtr emissiveInput = shaderNode->getInput("emissive");
+            cgltf_texture_view& textureView = material->emissive_texture;
+            cgltf_texture* texture = textureView.texture;
+            if (texture && texture->image)
+            {
+                string uri = texture->image->uri ? texture->image->uri : EMPTY_STRING;
+                NodePtr newTexture = createTexture(_materials, "image_emission", uri,
+                    "color3", "srgb_texture");
+                emissiveInput->setAttribute("nodename", newTexture->getName());
+            }
+            else
+            {
+                emissiveInput->setValueString(color3Value->getValueString());
             }
         }
     }
