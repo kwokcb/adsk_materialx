@@ -27,7 +27,10 @@ class MX_RENDER_API CgltfLoader : public GeometryLoader
     {
         _extensions = { "glb", "GLB", "gltf", "GLTF" };
     }
-    virtual ~CgltfLoader() { }
+    virtual ~CgltfLoader() 
+    {
+        _materials = nullptr;
+    }
 
     /// Create a new loader
     static CgltfLoaderPtr create() { return std::make_shared<CgltfLoader>(); }
@@ -38,7 +41,6 @@ class MX_RENDER_API CgltfLoader : public GeometryLoader
   private:
     void loadMaterials(void *);
 
-    DocumentPtr _materials;
     unsigned int _debugLevel;
 };
 

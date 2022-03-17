@@ -452,6 +452,7 @@ NodePtr createTexture(DocumentPtr& doc, const string & nodeName, const string & 
 {
     string newTextureName = doc->createValidChildName(nodeName);
     NodePtr newTexture = doc->addNode("tiledimage", newTextureName, textureType);
+    newTexture->setAttribute("nodedef", "ND_image_" + textureType);
     addDefaultInputs(newTexture);
     InputPtr fileInput = newTexture->getInput("file");
     fileInput->setValue(fileName, "filename");
@@ -510,19 +511,28 @@ void CgltfLoader::loadMaterials(void *vdata)
         _materials->importLibrary(_definitions);
     }
     size_t materialId = 0;
+    const string SHADER_PREFIX = "Shader_";
+    const string MATERIAL_PREFIX = "MATERIAL_";
     for (size_t m = 0; m < data->materials_count; m++)
     {
         cgltf_material* material = &(data->materials[m]);
         if (material)
         {
             // Create a default gltf_pbr node
-            string shaderName = material->name ? material->name : "SHADER_GLTF_PBR_" + std::to_string(materialId);
+            string matName = material->name ? material->name : EMPTY_STRING;
+            if (!matName.empty() && std::isdigit(matName[0]))
+            {
+                matName = SHADER_PREFIX + matName;
+            }
+            string shaderName = matName.empty() ? SHADER_PREFIX + std::to_string(materialId) : matName;
             shaderName = _materials->createValidChildName(shaderName);
             NodePtr shaderNode = _materials->addNode("gltf_pbr", shaderName, "surfaceshader");
+            shaderNode->setAttribute("nodedef", "ND_gltf_pbr_surfaceshader");
             addDefaultInputs(shaderNode);
 
             // Create a surface material for the shader node
-            string materialName = material->name ? "Material_" + string(material->name) : "MATERIAL_GLTF_PBR" + std::to_string(materialId);
+            string materialName = matName.empty() ? MATERIAL_PREFIX + std::to_string(materialId) : MATERIAL_PREFIX + matName;
+            materialName = _materials->createValidChildName(materialName);
             NodePtr materialNode = _materials->addNode("surfacematerial", materialName, "material");
             InputPtr shaderInput = materialNode->addInput("surfaceshader", "surfaceshader");
             shaderInput->setAttribute("nodename", shaderNode->getName());
@@ -531,7 +541,6 @@ void CgltfLoader::loadMaterials(void *vdata)
             {
                 cgltf_pbr_metallic_roughness& roughness = material->pbr_metallic_roughness;
 
-                // Set base color. Q: what to do with alpha = baseColorFactor[3];
                 Color3 baseColorFactor(roughness.base_color_factor[0],
                     roughness.base_color_factor[1],
                     roughness.base_color_factor[2]);
@@ -556,6 +565,13 @@ void CgltfLoader::loadMaterials(void *vdata)
                     }
                 }
 
+                // Alpha
+                InputPtr alphaInput = shaderNode->getInput("alpha");
+                if (alphaInput)
+                {
+                    alphaInput->setValue<float>(roughness.base_color_factor[3]);
+                }
+
                 // Normal texture
                 InputPtr normalInput = shaderNode->getInput("normal");
 
@@ -569,6 +585,7 @@ void CgltfLoader::loadMaterials(void *vdata)
 
                     string normalMapName = _materials->createValidChildName("pbr_normalmap");
                     NodePtr normalMap = _materials->addNode("normalmap", normalMapName, "vector3");
+                    normalMap->setAttribute("nodedef", "ND_normalmap");
                     addDefaultInputs(normalMap);
                     normalMap->getInput("in")->setAttribute("nodename", newTexture->getName());
                     normalMap->getInput("in")->setType("vector3");
@@ -608,6 +625,7 @@ void CgltfLoader::loadMaterials(void *vdata)
                     for (size_t i = 0; i < extractNames.size(); i++)
                     {
                         NodePtr extractNode = _materials->addNode("extract", extractNames[i], "float");
+                        extractNode->setAttribute("nodedef", "ND_extract_vector3");
                         addDefaultInputs(extractNode);
                         extractNode->getInput("in")->setAttribute("nodename", textureNode->getName());
                         extractNode->getInput("in")->setType("vector3");
@@ -631,7 +649,7 @@ void CgltfLoader::loadMaterials(void *vdata)
             {
                 cgltf_transmission& transmission = material->transmission;
 
-                InputPtr transmissionInput = shaderNode->getInput("transmision");
+                InputPtr transmissionInput = shaderNode->getInput("transmission");
                 if (transmissionInput)
                 {
                     cgltf_texture_view& textureView = transmission.transmission_texture;
