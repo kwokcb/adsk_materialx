@@ -428,12 +428,19 @@ void addDefaultInputs(NodePtr& shaderNode)
         for (ValueElementPtr nodeDefValueElem : nodeNodeDef->getActiveValueElements())
         {
             const std::string& valueElemName = nodeDefValueElem->getName();
-            InputPtr newInput = shaderNode->addInputFromNodeDef(valueElemName);
-            if (newInput)
+            //InputPtr newInput = shaderNode->addInputFromNodeDef(valueElemName);
+            InputPtr nodeInput = shaderNode->getInput(valueElemName);
+            if (!nodeInput)
             {
-                for (auto nonInstanceAttribute : nonInstanceAttributes)
+                InputPtr nodeDefInput = nodeNodeDef->getActiveInput(valueElemName);
+                if (nodeDefInput)
                 {
-                    newInput->removeAttribute(nonInstanceAttribute);
+                    nodeInput = shaderNode->addInput(nodeDefInput->getName());
+                    nodeInput->copyContentFrom(nodeDefInput);
+                    for (auto nonInstanceAttribute : nonInstanceAttributes)
+                    {
+                        nodeInput->removeAttribute(nonInstanceAttribute);
+                    }
                 }
             }
         }
@@ -617,9 +624,89 @@ void CgltfLoader::loadMaterials(void *vdata)
                     metallicInput->setValue<float>(roughness.metallic_factor);;
                     roughnessInput->setValue<float>(roughness.roughness_factor);
                 }
+            }        
+
+            // Handle tranmission
+            if (material->has_transmission)
+            {
+                cgltf_transmission& transmission = material->transmission;
+
+                InputPtr transmissionInput = shaderNode->getInput("transmision");
+                if (transmissionInput)
+                {
+                    cgltf_texture_view& textureView = transmission.transmission_texture;
+                    cgltf_texture* texture = textureView.texture;
+                    if (texture && texture->image)
+                    {
+                        string uri = texture->image->uri ? texture->image->uri : EMPTY_STRING;
+                        NodePtr newTexture = createTexture(_materials, "image_transmission", uri,
+                            "float", EMPTY_STRING);
+                        transmissionInput->setAttribute("nodename", newTexture->getName());
+                    }
+                    else
+                    {
+                        transmissionInput->setValue<float>(transmission.transmission_factor);
+                    }
+                }
             }
 
-            // Set emissive factor value
+            // Handle specular and specular color
+            if (material->has_specular)
+            {
+                cgltf_specular& specular = material->specular;
+
+                Color3 specularColorFactor(specular.specular_color_factor[0],
+                    specular.specular_color_factor[1],
+                    specular.specular_color_factor[2]);
+                ValuePtr color3Value = Value::createValue<Color3>(specularColorFactor);
+                InputPtr specularColorInput = shaderNode->getInput("specular_color");
+                if (specularColorInput)
+                {
+                    cgltf_texture_view& textureView = specular.specular_color_texture;
+                    cgltf_texture* texture = textureView.texture;
+                    if (texture && texture->image)
+                    {
+                        string uri = texture->image->uri ? texture->image->uri : EMPTY_STRING;
+                        NodePtr newTexture = createTexture(_materials, "image_specularcolor", uri,
+                            "color3", "srgb_texture");
+                        specularColorInput->setAttribute("nodename", newTexture->getName());
+                    }
+                    else
+                    {
+                        specularColorInput->setValueString(color3Value->getValueString());
+                    }
+                }
+                InputPtr specularInput = shaderNode->getInput("specular");
+                if (specularInput)
+                {
+                    cgltf_texture_view& textureView = specular.specular_texture;
+                    cgltf_texture* texture = textureView.texture;
+                    if (texture && texture->image)
+                    {
+                        string uri = texture->image->uri ? texture->image->uri : EMPTY_STRING;
+                        NodePtr newTexture = createTexture(_materials, "image_specular", uri,
+                            "float", EMPTY_STRING);
+                        specularInput->setAttribute("nodename", newTexture->getName());
+                    }
+                    else
+                    {
+                        specularInput->setValue<float>(specular.specular_factor);
+                    }
+                }
+            }
+
+            // Set ior
+            if (material->has_ior)
+            {
+                cgltf_ior& ior = material->ior;
+                InputPtr iorInput = shaderNode->getInput("ior");
+                if (iorInput)
+                {
+                    iorInput->setValue<float>(ior.ior);
+                }
+            }
+
+            // Set emissive
             Color3 emissiveFactor(material->emissive_factor[0],
                                   material->emissive_factor[1],
                                   material->emissive_factor[2]);
