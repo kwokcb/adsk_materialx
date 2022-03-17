@@ -513,6 +513,7 @@ void CgltfLoader::loadMaterials(void *vdata)
     size_t materialId = 0;
     const string SHADER_PREFIX = "Shader_";
     const string MATERIAL_PREFIX = "MATERIAL_";
+    const string SPACE_STRING = " ";
     for (size_t m = 0; m < data->materials_count; m++)
     {
         cgltf_material* material = &(data->materials[m]);
@@ -548,14 +549,19 @@ void CgltfLoader::loadMaterials(void *vdata)
                 InputPtr baseColorInput = shaderNode->getInput("base_color");
                 if (baseColorInput)
                 {
-                    // TODO: Handle factor + texture being present along
-                    // with other texture parameters
+                    // TODO: 
+                    // - Handle factor + texture being present 
+                    // - Handle texture parameters
+                    // - Handle embedded textures
                     cgltf_texture_view& textureView = roughness.base_color_texture;
                     cgltf_texture* texture = textureView.texture;
                     if (texture && texture->image)
                     {
-                        string uri = texture->image->uri ? texture->image->uri : EMPTY_STRING;
-                        NodePtr newTexture = createTexture(_materials, "image_basecolor", uri,
+                        string imageNodeName = texture->image->name ? texture->image->name :
+                            "image_basecolor";
+                        imageNodeName = _materials->createValidChildName(imageNodeName);
+                        string uri = texture->image->uri ? texture->image->uri : SPACE_STRING;
+                        NodePtr newTexture = createTexture(_materials, imageNodeName, uri,
                                         "color3", "srgb_texture");
                         baseColorInput->setAttribute("nodename", newTexture->getName());
                     }
@@ -579,8 +585,11 @@ void CgltfLoader::loadMaterials(void *vdata)
                 cgltf_texture* normalTexture = normalView.texture;
                 if (normalTexture && normalTexture->image)
                 {
-                    string uri = normalTexture->image->uri ? normalTexture->image->uri : EMPTY_STRING;
-                    NodePtr newTexture = createTexture(_materials, "image_normal", uri,
+                    string imageNodeName = normalTexture->image->name ? normalTexture->image->name :
+                        "image_normal";
+                    imageNodeName = _materials->createValidChildName(imageNodeName);
+                    string uri = normalTexture->image->uri ? normalTexture->image->uri : SPACE_STRING;
+                    NodePtr newTexture = createTexture(_materials, imageNodeName, uri,
                         "vector3", EMPTY_STRING);
 
                     string normalMapName = _materials->createValidChildName("pbr_normalmap");
@@ -607,8 +616,11 @@ void CgltfLoader::loadMaterials(void *vdata)
                 cgltf_texture* texture = textureView.texture;
                 if (texture && texture->image)
                 {
-                    string uri = texture->image->uri ? texture->image->uri : EMPTY_STRING;
-                    NodePtr textureNode = createTexture(_materials, "image_orm", uri,
+                    string imageNodeName = texture->image->name ? texture->image->name :
+                        "image_orm";
+                    imageNodeName = _materials->createValidChildName(imageNodeName);
+                    string uri = texture->image->uri ? texture->image->uri : SPACE_STRING;
+                    NodePtr textureNode = createTexture(_materials, imageNodeName, uri,
                                                         "vector3", EMPTY_STRING);
 
                     // Add extraction nodes. Note that order matters
@@ -656,8 +668,11 @@ void CgltfLoader::loadMaterials(void *vdata)
                     cgltf_texture* texture = textureView.texture;
                     if (texture && texture->image)
                     {
-                        string uri = texture->image->uri ? texture->image->uri : EMPTY_STRING;
-                        NodePtr newTexture = createTexture(_materials, "image_transmission", uri,
+                        string imageNodeName = texture->image->name ? texture->image->name :
+                            "image_transmission";
+                        imageNodeName = _materials->createValidChildName(imageNodeName);
+                        string uri = texture->image->uri ? texture->image->uri : SPACE_STRING;
+                        NodePtr newTexture = createTexture(_materials, imageNodeName, uri,
                             "float", EMPTY_STRING);
                         transmissionInput->setAttribute("nodename", newTexture->getName());
                     }
@@ -684,8 +699,11 @@ void CgltfLoader::loadMaterials(void *vdata)
                     cgltf_texture* texture = textureView.texture;
                     if (texture && texture->image)
                     {
-                        string uri = texture->image->uri ? texture->image->uri : EMPTY_STRING;
-                        NodePtr newTexture = createTexture(_materials, "image_specularcolor", uri,
+                        string imageNodeName = texture->image->name ? texture->image->name :
+                            "image_specularcolor";
+                        imageNodeName = _materials->createValidChildName(imageNodeName);
+                        string uri = texture->image->uri ? texture->image->uri : SPACE_STRING;
+                        NodePtr newTexture = createTexture(_materials, imageNodeName, uri,
                             "color3", "srgb_texture");
                         specularColorInput->setAttribute("nodename", newTexture->getName());
                     }
@@ -701,8 +719,11 @@ void CgltfLoader::loadMaterials(void *vdata)
                     cgltf_texture* texture = textureView.texture;
                     if (texture && texture->image)
                     {
-                        string uri = texture->image->uri ? texture->image->uri : EMPTY_STRING;
-                        NodePtr newTexture = createTexture(_materials, "image_specular", uri,
+                        string imageNodeName = texture->image->name ? texture->image->name :
+                            "image_specular";
+                        imageNodeName = _materials->createValidChildName(imageNodeName);
+                        string uri = texture->image->uri ? texture->image->uri : SPACE_STRING;
+                        NodePtr newTexture = createTexture(_materials, imageNodeName, uri,
                             "float", EMPTY_STRING);
                         specularInput->setAttribute("nodename", newTexture->getName());
                     }
@@ -735,8 +756,11 @@ void CgltfLoader::loadMaterials(void *vdata)
             cgltf_texture* texture = textureView.texture;
             if (texture && texture->image)
             {
-                string uri = texture->image->uri ? texture->image->uri : EMPTY_STRING;
-                NodePtr newTexture = createTexture(_materials, "image_emission", uri,
+                string imageNodeName = texture->image->name ? texture->image->name :
+                    "image_emission";
+                imageNodeName = _materials->createValidChildName(imageNodeName);
+                string uri = texture->image->uri ? texture->image->uri : SPACE_STRING;
+                NodePtr newTexture = createTexture(_materials, imageNodeName, uri,
                     "color3", "srgb_texture");
                 emissiveInput->setAttribute("nodename", newTexture->getName());
             }
