@@ -39,8 +39,6 @@ class MX_RENDER_API CgltfLoader : public GeometryLoader
     bool load(const FilePath& filePath, MeshList& meshList, bool texcoordVerticalFlip=false) override;
 
   private:
-    void loadMaterials(void *);
-
     unsigned int _debugLevel;
 };
 

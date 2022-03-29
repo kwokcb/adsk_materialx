@@ -4,6 +4,7 @@
 #include <MaterialXRenderGlsl/TextureBaker.h>
 
 #include <MaterialXRender/CgltfLoader.h>
+#include <MaterialXRender/CgltfMaterialLoader.h>
 #include <MaterialXRender/Harmonics.h>
 #include <MaterialXRender/OiioImageLoader.h>
 #include <MaterialXRender/StbImageLoader.h>
@@ -363,7 +364,6 @@ void Viewer::initialize()
     // Create geometry handler.
     mx::TinyObjLoaderPtr objLoader = mx::TinyObjLoader::create();
     mx::CgltfLoaderPtr gltfLoader = mx::CgltfLoader::create();
-    gltfLoader->setDefinitions(_stdLib);
     _geometryHandler = mx::GeometryHandler::create();
     _geometryHandler->addLoader(objLoader);
     _geometryHandler->addLoader(gltfLoader);
@@ -1062,6 +1062,25 @@ void Viewer::loadMesh(const mx::FilePath& filename)
     _geometryHandler->clearGeometry();
     if (_geometryHandler->loadGeometry(filename))
     {
+        mx::CgltfMaterialLoaderPtr gltfMTLXLoader = mx::CgltfMaterialLoader::create();
+        gltfMTLXLoader->setDefinitions(_stdLib);
+        bool loadedMaterial = gltfMTLXLoader->load(filename);
+        mx::DocumentPtr materials = loadedMaterial ? gltfMTLXLoader->getMaterials() : nullptr;
+        if (materials)
+        {
+            mx::XmlWriteOptions writeOptions;
+            writeOptions.elementPredicate = [](mx::ConstElementPtr elem)
+            {
+                if (elem->hasSourceUri())
+                {
+                    return false;
+                }
+                return true;
+            };
+
+            mx::writeToXmlFile(materials, filename.asString() + ".mtlx", &writeOptions);
+        }
+
         _meshFilename = filename;
         if (_splitByUdims)
         { 

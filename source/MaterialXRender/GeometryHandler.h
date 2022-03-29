@@ -48,16 +48,6 @@ class MX_RENDER_API GeometryLoader
     /// @return True if load was successful
     virtual bool load(const FilePath& filePath, MeshList& meshList, bool texcoordVerticalFlip = false) = 0;
 
-    void setDefinitions(DocumentPtr doc)
-    {
-        _definitions = doc;
-    }
-
-    DocumentPtr getMaterials() const
-    {
-        return _materials;
-    }
-
   protected:
     // List of supported string extensions
     StringSet _extensions;
