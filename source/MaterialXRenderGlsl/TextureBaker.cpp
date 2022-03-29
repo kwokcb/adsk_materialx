@@ -210,7 +210,7 @@ void TextureBaker::bakeGraphOutput(OutputPtr output, GenContext& context, const 
 
     bool encodeSrgb = _colorSpace == SRGB_TEXTURE &&
         (output->getType() == "color3" || output->getType() == "color4");
-    getFrameBuffer()->setEncodeSrgb(encodeSrgb);
+    getFramebuffer()->setEncodeSrgb(encodeSrgb);
 
     // Render and capture the requested image.
     renderTextureSpace();
@@ -475,10 +475,7 @@ DocumentPtr TextureBaker::bakeMaterialToDoc(DocumentPtr doc, const FileSearchPat
 
     DefaultColorManagementSystemPtr cms = DefaultColorManagementSystem::create(genContext.getShaderGenerator().getTarget());
     cms->loadLibrary(doc);
-    for (const FilePath& path : searchPath)
-    {
-        genContext.registerSourceCodeSearchPath(path / "libraries");
-    }
+    genContext.registerSourceCodeSearchPath(searchPath);
     genContext.getShaderGenerator().setColorManagementSystem(cms);
 
     // Compute the material tag set.
