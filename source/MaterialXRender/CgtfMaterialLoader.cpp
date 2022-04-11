@@ -387,12 +387,42 @@ void CgltfMaterialLoader::loadMaterials(void *vdata)
             }
         }
 
-        // Set emissive
+        // Set emissive inputs
         Color3 colorFactor(material->emissive_factor[0],
             material->emissive_factor[1],
             material->emissive_factor[2]);
         setColorInput(_materials, shaderNode, "emissive",
             colorFactor, &material->emissive_texture, "image_emission");
+
+        if (material->has_emissive_strength)
+        {
+            cgltf_emissive_strength& emissive_strength = material->emissive_strength;
+            InputPtr input = shaderNode->getInput("emissive_strength");
+            if (input)
+            {
+                input->setValue<float>(emissive_strength.emissive_strength);
+            }
+        }
+
+        // Volume inputs
+        if (material->has_volume)
+        {
+            cgltf_volume& volume = material->volume;
+
+            setFloatInput(_materials, shaderNode, "thickness",
+                volume.thickness_factor,
+                &volume.thickness_texture,
+                "thickness");
+
+            Color3 attenFactor(volume.attenuation_color[0],
+                volume.attenuation_color[1],
+                volume.attenuation_color[2]);
+            setColorInput(_materials, shaderNode, "attenuation_color",
+                          attenFactor, nullptr, EMPTY_STRING);
+
+            setFloatInput(_materials, shaderNode, "attenuation_distance",
+                volume.attenuation_distance, nullptr, EMPTY_STRING);
+        }
     }
 }
 
