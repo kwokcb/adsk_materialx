@@ -9,8 +9,6 @@
 /// @file
 /// Geometry loader interfaces
 
-#include <MaterialXCore/Document.h>
-
 #include <MaterialXRender/Export.h>
 #include <MaterialXRender/Mesh.h>
 
@@ -51,9 +49,6 @@ class MX_RENDER_API GeometryLoader
   protected:
     // List of supported string extensions
     StringSet _extensions;
-
-    DocumentPtr _definitions;
-    DocumentPtr _materials;
 };
 
 /// Shared pointer to an GeometryHandler

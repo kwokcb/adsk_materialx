@@ -3,10 +3,6 @@
 // All rights reserved.  See LICENSE.txt for license.
 //
 
-#include <MaterialXCore/Value.h>
-#include <MaterialXCore/Types.h>
-#include <MaterialXFormat/XmlIo.h>
-#include <MaterialXFormat/Util.h>
 #include <MaterialXRender/CgltfLoader.h>
 
 #if defined(__GNUC__)
