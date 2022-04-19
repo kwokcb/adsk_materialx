@@ -1082,6 +1082,8 @@ void Viewer::loadMesh(const mx::FilePath& filename)
             };
 
             mx::writeToXmlFile(materials, filename.asString() + ".mtlx", &writeOptions);
+
+            gltfMTLXLoader->save(filename.asString() + "_mtlx.gltf");
         }
 
         _meshFilename = filename;

@@ -2,6 +2,7 @@
 // TM & (c) 2022 Lucasfilm Entertainment Company Ltd. and Lucasfilm Ltd.
 // All rights reserved.  See LICENSE.txt for license.
 //
+#pragma optimize( "", off )
 
 #include <MaterialXCore/Value.h>
 #include <MaterialXCore/Types.h>
@@ -21,6 +22,8 @@
 
 //#define CGLTF_IMPLEMENTATION -- don't set to avoid duplicate symbols
 #include <MaterialXRender/External/Cgltf/cgltf.h>
+#define CGLTF_WRITE_IMPLEMENTATION
+#include <MaterialXRender/External/Cgltf/cgltf_write.h>
 
 #if defined(_MSC_VER)
     #pragma warning(pop)
@@ -36,6 +39,268 @@
 
 MATERIALX_NAMESPACE_BEGIN
 
+bool CgltfMaterialLoader::save(const FilePath& filePath)
+{
+    if (!_materials)
+    {
+        return false;
+    }
+
+    const string input_filename = filePath.asString();
+    const string ext = stringToLower(filePath.getExtension());
+    const string BINARY_EXTENSION = "glb";
+    const string ASCII_EXTENSION = "gltf";
+    if (ext != BINARY_EXTENSION && ext != ASCII_EXTENSION)
+    {
+        return false;
+    }
+
+    cgltf_options options;
+    std::memset(&options, 0, sizeof(options));
+    cgltf_data* data = new cgltf_data();
+	data->file_type = cgltf_file_type_gltf;
+    data->file_data = nullptr;
+	//cgltf_asset asset;
+	data->meshes = nullptr;
+	data->meshes_count = 0;
+	data->materials = nullptr;
+	data->materials_count = 0;
+	data->accessors = nullptr;
+	data->accessors_count = 0;
+	data->buffer_views = nullptr;
+	data->buffer_views_count = 0;
+	data->buffers = nullptr;
+	data->buffers_count = 0;
+	data->images = nullptr;
+	data->images_count = 0;
+	data->textures = nullptr;
+	data->textures_count = 0;
+	data->samplers = nullptr;
+	data->samplers_count = 0;
+	data->skins = nullptr;
+    data->skins_count = 0;
+    data->cameras = nullptr;
+	data->cameras_count = 0;
+	data->lights = nullptr;
+	data->lights_count = 0;
+	data->nodes = nullptr;
+	data->nodes_count = 0;
+	data->scenes = nullptr;
+    data->scenes_count = 0;
+	data->scene = nullptr;
+	data->animations = nullptr;
+	data->animations_count;
+	data->variants;
+	data->variants_count;
+	//cgltf_extras extras;
+	data->data_extensions_count;
+	data->data_extensions = nullptr;
+	data->extensions_used = nullptr;
+	data->extensions_used_count = 0;
+	data->extensions_required = nullptr;
+	data->extensions_required_count = 0;
+	data->json = nullptr;
+	data->json_size = 0;
+	data->bin = nullptr;
+	data->bin_size = 0;
+
+	data->asset.generator = "MaterialX 1.38.4 to glTF generator";
+    data->asset.version = const_cast<char*>((new string("1"))->c_str());
+	data->asset.min_version = const_cast<char*>((new string("38"))->c_str());;
+
+    // Scan for PBR shader nodes
+    const string PBR_CATEGORY_STRING("gltf_pbr");
+    std::set<NodePtr> pbrNodes;
+    for (const NodePtr& material : _materials->getMaterialNodes())
+    {
+        vector<NodePtr> shaderNodes = getShaderNodes(material);
+        for (const NodePtr& shaderNode : shaderNodes)
+        {
+            if (shaderNode->getCategory() == PBR_CATEGORY_STRING &&
+                pbrNodes.find(shaderNode) == pbrNodes.end())
+            {
+                pbrNodes.insert(shaderNode);
+            }
+        }
+    }
+
+    cgltf_size materials_count = pbrNodes.size();
+    if (!materials_count)
+    {
+        return false;
+    }
+
+    // Write materials
+    /*
+    * typedef struct cgltf_material
+    {
+	    char* name;
+	    cgltf_bool has_pbr_metallic_roughness;
+	    cgltf_bool has_pbr_specular_glossiness;
+	    cgltf_bool has_clearcoat;
+	    cgltf_bool has_transmission;
+	    cgltf_bool has_volume;
+	    cgltf_bool has_ior;
+	    cgltf_bool has_specular;
+	    cgltf_bool has_sheen;
+	    cgltf_bool has_emissive_strength;
+	    cgltf_pbr_metallic_roughness pbr_metallic_roughness;
+	    cgltf_pbr_specular_glossiness pbr_specular_glossiness;
+	    cgltf_clearcoat clearcoat;
+	    cgltf_ior ior;
+	    cgltf_specular specular;
+	    cgltf_sheen sheen;
+	    cgltf_transmission transmission;
+	    cgltf_volume volume;
+	    cgltf_emissive_strength emissive_strength;
+	    cgltf_texture_view normal_texture;
+	    cgltf_texture_view occlusion_texture;
+	    cgltf_texture_view emissive_texture;
+	    cgltf_float emissive_factor[3];
+	    cgltf_alpha_mode alpha_mode;
+	    cgltf_float alpha_cutoff;
+	    cgltf_bool double_sided;
+	    cgltf_bool unlit;
+	    cgltf_extras extras;
+	    cgltf_size extensions_count;
+	    cgltf_extension* extensions;
+    } cgltf_material;
+    */
+    cgltf_material* materials = new cgltf_material[materials_count];
+    data->materials = materials;
+    data->materials_count = materials_count;
+
+    // Set of image nodes.
+    // TODO: Fix to be dynamic
+    cgltf_texture textureList[1024];
+    cgltf_image imageList[1024];
+
+    size_t i = 0;
+    size_t imageIndex = 0;
+    for (const NodePtr& pbrNode : pbrNodes)
+    {
+        cgltf_material* material = &(materials[i]);
+	    material->has_pbr_metallic_roughness = false;
+	    material->has_pbr_specular_glossiness = false;
+	    material->has_clearcoat = false;
+	    material->has_transmission = false;
+	    material->has_volume = false;
+	    material->has_ior = false;
+	    material->has_specular = false;
+	    material->has_sheen = false;
+	    material->has_emissive_strength = false;
+	    material->extensions_count = 0;
+	    material->extensions = nullptr;
+        material->emissive_texture.texture = nullptr;
+        material->normal_texture.texture = nullptr;
+
+        string* name = new string(pbrNode->getNamePath());
+        material->name = const_cast<char*>(name->c_str());
+        std::cout << "Write material: " << material->name << std::endl;
+
+        material->has_pbr_metallic_roughness = true;
+        cgltf_pbr_metallic_roughness& roughness = material->pbr_metallic_roughness;
+        roughness.base_color_texture.texture = nullptr;
+        roughness.base_color_texture.scale = 1.0;
+	    roughness.base_color_texture.has_transform = false;
+        roughness.base_color_texture.extras.start_offset = 0;
+        roughness.base_color_texture.extras.end_offset = 0;
+        roughness.base_color_texture.extensions_count = 0;
+        roughness.base_color_texture.extensions = nullptr;
+
+        roughness.metallic_roughness_texture.texture = nullptr;
+        roughness.metallic_roughness_texture.scale = 1.0;
+	    roughness.metallic_roughness_texture.has_transform = false;
+        roughness.metallic_roughness_texture.extras.start_offset = 0;
+        roughness.metallic_roughness_texture.extras.end_offset = 0;
+        roughness.metallic_roughness_texture.extensions_count = 0;
+        roughness.metallic_roughness_texture.texture = nullptr;
+
+        NodePtr imageNode = pbrNode->getConnectedNode("base_color");
+        string filename;
+        if (imageNode)
+        {
+            InputPtr fileInput = imageNode->getInput("file");
+            filename = fileInput && fileInput->getAttribute("type") == "filename" ?
+                fileInput->getValueString() : EMPTY_STRING;
+            if (filename.empty())
+                imageNode = nullptr;
+        }
+        if (imageNode)
+        {
+            cgltf_texture* texture = &(textureList[imageIndex]);
+            roughness.base_color_texture.texture = texture;
+
+            texture->has_basisu = false;
+            texture->extras.start_offset = 0;
+            texture->extras.end_offset = 0;
+            texture->extensions_count = 0;
+            texture->sampler = nullptr;
+            texture->image = &(imageList[imageIndex]);
+            texture->image->extras.start_offset = 0;
+            texture->image->extras.end_offset = 0;
+            texture->image->extensions_count = 0;
+            texture->image->buffer_view = nullptr;
+            texture->image->mime_type = nullptr;
+            string* fileNameChar = new string(imageNode->getNamePath());
+            texture->image->name = const_cast<char*>(fileNameChar->c_str());
+            texture->name = texture->image->name;
+            string* uriChar = new string(filename);
+            texture->image->uri = const_cast<char*>(uriChar->c_str());
+
+            imageIndex++;
+        }
+        else
+        {
+            ValuePtr value = pbrNode->getInputValue("base_color");
+            if (value)
+            {
+                Color3 color = value->asA<Color3>();
+                roughness.base_color_factor[0] = color[0];
+                roughness.base_color_factor[1] = color[1];
+                roughness.base_color_factor[2] = color[2];
+            }
+
+            value = pbrNode->getInputValue("alpha");
+            if (value)
+            {
+                roughness.base_color_factor[3] = value->asA<float>();
+            }
+        }
+
+        ValuePtr value;
+        InputPtr metallicInput = pbrNode->getInput("metallic");
+        InputPtr roughnessInput = pbrNode->getInput("roughness");
+        InputPtr occlusionInput = pbrNode->getInput("occlusion");
+        if (metallicInput)
+        {
+            value = metallicInput->getValue();
+            roughness.metallic_factor = value->asA<float>();
+        }
+        if (roughnessInput)
+        {
+            value = roughnessInput->getValue();
+            roughness.roughness_factor = value->asA<float>();
+        }
+
+        i++;
+    }
+
+    // Write out image and texture list
+    data->images_count = imageIndex;
+    data->images = &imageList[0];
+    data->textures_count = imageIndex; 
+    data->textures = &textureList[0];
+
+    // Write to disk
+    cgltf_result result = cgltf_write_file(&options, filePath.asString().c_str(), data);
+    if (result != cgltf_result_success)
+    {
+        return false;
+    }
+    return false;
+}
+
 bool CgltfMaterialLoader::load(const FilePath& filePath)
 {
     const string input_filename = filePath.asString();
@@ -49,7 +314,7 @@ bool CgltfMaterialLoader::load(const FilePath& filePath)
 
     cgltf_options options;
     std::memset(&options, 0, sizeof(options));
-    cgltf_data* data = nullptr;
+    cgltf_data* data = new cgltf_data;
 
     // Read file
     cgltf_result result = cgltf_parse_file(&options, input_filename.c_str(), &data);
@@ -283,7 +548,7 @@ void CgltfMaterialLoader::loadMaterials(void *vdata)
             }
             else
             {
-                metallicInput->setValue<float>(roughness.metallic_factor);;
+                metallicInput->setValue<float>(roughness.metallic_factor);
                 roughnessInput->setValue<float>(roughness.roughness_factor);
             }
         }
@@ -427,3 +692,5 @@ void CgltfMaterialLoader::loadMaterials(void *vdata)
 }
 
 MATERIALX_NAMESPACE_END
+
+#pragma optimize( "", on )
