@@ -69,11 +69,9 @@ void initialize_cgtlf_texture(cgltf_texture& texture, const string& name, const 
     texture.image->extensions_count = 0;
     texture.image->buffer_view = nullptr;
     texture.image->mime_type = nullptr;
-    string* fileNameChar = new string(name);
-    texture.image->name = const_cast<char*>(fileNameChar->c_str());
+    texture.image->name = const_cast<char*>((new string(name))->c_str());
     texture.name = texture.image->name;
-    string* uriChar = new string(uri);
-    texture.image->uri = const_cast<char*>(uriChar->c_str());
+    texture.image->uri = const_cast<char*>((new string(uri))->c_str());
 }
 
 }
