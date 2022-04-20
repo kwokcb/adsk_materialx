@@ -2,7 +2,9 @@
 // TM & (c) 2022 Lucasfilm Entertainment Company Ltd. and Lucasfilm Ltd.
 // All rights reserved.  See LICENSE.txt for license.
 //
-#pragma optimize( "", off )
+#if defined(_MSC_VER)
+    #pragma optimize( "", off )
+#endif
 
 #include <MaterialXCore/Value.h>
 #include <MaterialXCore/Types.h>
@@ -298,12 +300,6 @@ bool CgltfMaterialLoader::save(const FilePath& filePath)
             nullptr
         };
 
-        //unsigned int extractIndices[3] = 
-        //{   0 /* roughness*/, 
-        //    0 /* metallic */,
-        //    0 /* occlusion */
-        //};
-
         NodePtr ormNode = nullptr;
         imageNode = nullptr;
         const string extractCategory("extract");
@@ -313,18 +309,11 @@ bool CgltfMaterialLoader::save(const FilePath& filePath)
             InputPtr pbrInput = pbrNode->getInput(inputName);            
             if (pbrInput)
             {
-                filename = EMPTY_STRING;
+                // Read past any extract node
                 NodePtr extractNode = pbrNode->getConnectedNode(inputName);
                 if (extractNode && extractNode->getCategory() == extractCategory)
                 {
-                    // Read past any extract node
                     imageNode = extractNode->getConnectedNode("in");
-                    /* InputPtr indexInput = extractNode->getInput("index");
-                    if (indexInput)
-                    {
-                        value = indexInput->getValue();
-                        extractIndices[e] = value ? value->asA<int>() : 0;
-                    } */
                 }
 
                 if (imageNode)
@@ -776,4 +765,6 @@ void CgltfMaterialLoader::loadMaterials(void *vdata)
 
 MATERIALX_NAMESPACE_END
 
-#pragma optimize( "", on )
+#if defined(_MSC_VER)
+    #pragma optimize( "", on )
+#endif
