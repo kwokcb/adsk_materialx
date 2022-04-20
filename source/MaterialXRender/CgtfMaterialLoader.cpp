@@ -143,9 +143,9 @@ bool CgltfMaterialLoader::save(const FilePath& filePath)
 	data->bin = nullptr;
 	data->bin_size = 0;
 
-	data->asset.generator = "MaterialX 1.38.4 to glTF generator";
-    data->asset.version = const_cast<char*>((new string("1.38.4"))->c_str());
-	data->asset.min_version = const_cast<char*>((new string("1.38.4"))->c_str());;
+	data->asset.generator = const_cast<char*>((new string("MaterialX 1.38.4 to glTF generator"))->c_str());;
+    data->asset.version = const_cast<char*>((new string("1.38"))->c_str());
+	data->asset.min_version = const_cast<char*>((new string("1.38"))->c_str());;
 
     // Scan for PBR shader nodes
     const string PBR_CATEGORY_STRING("gltf_pbr");
