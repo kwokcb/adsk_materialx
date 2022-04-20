@@ -39,6 +39,43 @@
 
 MATERIALX_NAMESPACE_BEGIN
 
+namespace
+{
+
+void initialize_cgltf_texture_view(cgltf_texture_view& textureview)
+{
+    textureview.texture = nullptr;
+    textureview.scale = 1.0;
+    textureview.has_transform = false;
+    textureview.extras.start_offset = 0;
+    textureview.extras.end_offset = 0;
+    textureview.extensions_count = 0;
+    textureview.extensions = nullptr;
+}
+
+void initialize_cgtlf_texture(cgltf_texture& texture, const string& name, const string& uri, 
+                              cgltf_image* image)
+{
+    texture.has_basisu = false;
+    texture.extras.start_offset = 0;
+    texture.extras.end_offset = 0;
+    texture.extensions_count = 0;
+    texture.sampler = nullptr;
+    texture.image = image;
+    texture.image->extras.start_offset = 0;
+    texture.image->extras.end_offset = 0;
+    texture.image->extensions_count = 0;
+    texture.image->buffer_view = nullptr;
+    texture.image->mime_type = nullptr;
+    string* fileNameChar = new string(name);
+    texture.image->name = const_cast<char*>(fileNameChar->c_str());
+    texture.name = texture.image->name;
+    string* uriChar = new string(uri);
+    texture.image->uri = const_cast<char*>(uriChar->c_str());
+}
+
+}
+
 bool CgltfMaterialLoader::save(const FilePath& filePath)
 {
     if (!_materials)
@@ -105,8 +142,8 @@ bool CgltfMaterialLoader::save(const FilePath& filePath)
 	data->bin_size = 0;
 
 	data->asset.generator = "MaterialX 1.38.4 to glTF generator";
-    data->asset.version = const_cast<char*>((new string("1"))->c_str());
-	data->asset.min_version = const_cast<char*>((new string("38"))->c_str());;
+    data->asset.version = const_cast<char*>((new string("1.38.4"))->c_str());
+	data->asset.min_version = const_cast<char*>((new string("1.38.4"))->c_str());;
 
     // Scan for PBR shader nodes
     const string PBR_CATEGORY_STRING("gltf_pbr");
@@ -196,28 +233,15 @@ bool CgltfMaterialLoader::save(const FilePath& filePath)
 
         string* name = new string(pbrNode->getNamePath());
         material->name = const_cast<char*>(name->c_str());
-        std::cout << "Write material: " << material->name << std::endl;
+        //std::cout << "Write material: " << material->name << std::endl;
 
         material->has_pbr_metallic_roughness = true;
         cgltf_pbr_metallic_roughness& roughness = material->pbr_metallic_roughness;
-        roughness.base_color_texture.texture = nullptr;
-        roughness.base_color_texture.scale = 1.0;
-	    roughness.base_color_texture.has_transform = false;
-        roughness.base_color_texture.extras.start_offset = 0;
-        roughness.base_color_texture.extras.end_offset = 0;
-        roughness.base_color_texture.extensions_count = 0;
-        roughness.base_color_texture.extensions = nullptr;
+        initialize_cgltf_texture_view(roughness.base_color_texture);
 
-        roughness.metallic_roughness_texture.texture = nullptr;
-        roughness.metallic_roughness_texture.scale = 1.0;
-	    roughness.metallic_roughness_texture.has_transform = false;
-        roughness.metallic_roughness_texture.extras.start_offset = 0;
-        roughness.metallic_roughness_texture.extras.end_offset = 0;
-        roughness.metallic_roughness_texture.extensions_count = 0;
-        roughness.metallic_roughness_texture.texture = nullptr;
-
-        NodePtr imageNode = pbrNode->getConnectedNode("base_color");
+        // Handle base color
         string filename;
+        NodePtr imageNode = pbrNode->getConnectedNode("base_color");
         if (imageNode)
         {
             InputPtr fileInput = imageNode->getInput("file");
@@ -230,23 +254,13 @@ bool CgltfMaterialLoader::save(const FilePath& filePath)
         {
             cgltf_texture* texture = &(textureList[imageIndex]);
             roughness.base_color_texture.texture = texture;
+            initialize_cgtlf_texture(*texture, imageNode->getNamePath(), filename,
+                &(imageList[imageIndex]));            
 
-            texture->has_basisu = false;
-            texture->extras.start_offset = 0;
-            texture->extras.end_offset = 0;
-            texture->extensions_count = 0;
-            texture->sampler = nullptr;
-            texture->image = &(imageList[imageIndex]);
-            texture->image->extras.start_offset = 0;
-            texture->image->extras.end_offset = 0;
-            texture->image->extensions_count = 0;
-            texture->image->buffer_view = nullptr;
-            texture->image->mime_type = nullptr;
-            string* fileNameChar = new string(imageNode->getNamePath());
-            texture->image->name = const_cast<char*>(fileNameChar->c_str());
-            texture->name = texture->image->name;
-            string* uriChar = new string(filename);
-            texture->image->uri = const_cast<char*>(uriChar->c_str());
+            roughness.base_color_factor[0] = 1.0;
+            roughness.base_color_factor[1] = 1.0;
+            roughness.base_color_factor[2] = 1.0;
+            roughness.base_color_factor[3] = 1.0;
 
             imageIndex++;
         }
@@ -268,25 +282,94 @@ bool CgltfMaterialLoader::save(const FilePath& filePath)
             }
         }
 
+        // Handle metallic, roughness, occlusion
+        initialize_cgltf_texture_view(roughness.metallic_roughness_texture);
         ValuePtr value;
-        InputPtr metallicInput = pbrNode->getInput("metallic");
-        InputPtr roughnessInput = pbrNode->getInput("roughness");
-        InputPtr occlusionInput = pbrNode->getInput("occlusion");
-        if (metallicInput)
+        string extractInputs[3] =
         {
-            value = metallicInput->getValue();
-            roughness.metallic_factor = value->asA<float>();
+            "metallic",
+            "roughness",
+            "occlusion"
+        };
+        cgltf_float* roughnessInputs[3] =
+        {
+            &roughness.metallic_factor,
+            &roughness.roughness_factor,
+            nullptr
+        };
+
+        //unsigned int extractIndices[3] = 
+        //{   0 /* roughness*/, 
+        //    0 /* metallic */,
+        //    0 /* occlusion */
+        //};
+
+        NodePtr ormNode = nullptr;
+        imageNode = nullptr;
+        const string extractCategory("extract");
+        for (size_t e=0; e<3; e++)
+        { 
+            const string& inputName = extractInputs[e];
+            InputPtr pbrInput = pbrNode->getInput(inputName);            
+            if (pbrInput)
+            {
+                filename = EMPTY_STRING;
+                NodePtr extractNode = pbrNode->getConnectedNode(inputName);
+                if (extractNode && extractNode->getCategory() == extractCategory)
+                {
+                    // Read past any extract node
+                    imageNode = extractNode->getConnectedNode("in");
+                    /* InputPtr indexInput = extractNode->getInput("index");
+                    if (indexInput)
+                    {
+                        value = indexInput->getValue();
+                        extractIndices[e] = value ? value->asA<int>() : 0;
+                    } */
+                }
+
+                if (imageNode)
+                {
+                    // Only create the ORM texture once
+                    if (!ormNode)
+                    {
+                        ormNode = imageNode;
+
+                        InputPtr fileInput = imageNode->getInput("file");
+                        filename = fileInput && fileInput->getAttribute("type") == "filename" ?
+                            fileInput->getValueString() : EMPTY_STRING;
+
+                        cgltf_texture* texture = &(textureList[imageIndex]);
+                        roughness.metallic_roughness_texture.texture = texture;
+                        initialize_cgtlf_texture(*texture, imageNode->getNamePath(), filename,
+                            &(imageList[imageIndex]));
+                        imageIndex++;
+                    }
+
+                    if (roughnessInputs[e])
+                    {
+                        *(roughnessInputs[e]) = 1.0f;
+                    }
+                }
+                else
+                {
+                    if (roughnessInputs[e])
+                    {
+                        value = pbrInput->getValue();
+                        *(roughnessInputs[e]) = value->asA<float>();
+                    }
+                }
+            }
         }
-        if (roughnessInput)
+        /* if (roughnessInput)
         {
             value = roughnessInput->getValue();
             roughness.roughness_factor = value->asA<float>();
-        }
+        }*/
 
         i++;
     }
 
-    // Write out image and texture list
+    // Set image and texture lists
     data->images_count = imageIndex;
     data->images = &imageList[0];
     data->textures_count = imageIndex; 
@@ -523,9 +606,9 @@ void CgltfMaterialLoader::loadMaterials(void *vdata)
                 // Add extraction nodes. Note that order matters
                 StringVec extractNames =
                 {
-                        _materials->createValidChildName("extract_occlusion"),
-                        _materials->createValidChildName("extract_roughness"),
-                        _materials->createValidChildName("extract_metallic")
+                    _materials->createValidChildName("extract_occlusion"),
+                    _materials->createValidChildName("extract_roughness"),
+                    _materials->createValidChildName("extract_metallic")
                 };
                 std::vector<InputPtr> inputs =
                 {
