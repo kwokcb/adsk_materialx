@@ -97,7 +97,7 @@ bool CgltfMaterialLoader::save(const FilePath& filePath)
     cgltf_options options;
     std::memset(&options, 0, sizeof(options));
     cgltf_data* data = new cgltf_data();
-	data->file_type = cgltf_file_type_gltf;
+	data->file_type = (ext == BINARY_EXTENSION) ? cgltf_file_type::cgltf_file_type_glb : cgltf_file_type::cgltf_file_type_gltf;
     data->file_data = nullptr;
 	//cgltf_asset asset;
 	data->meshes = nullptr;
@@ -128,11 +128,11 @@ bool CgltfMaterialLoader::save(const FilePath& filePath)
     data->scenes_count = 0;
 	data->scene = nullptr;
 	data->animations = nullptr;
-	data->animations_count;
-	data->variants;
-	data->variants_count;
+	data->animations_count = 0;
+	data->variants = nullptr;
+	data->variants_count = 0;
 	//cgltf_extras extras;
-	data->data_extensions_count;
+	data->data_extensions_count = 0;
 	data->data_extensions = nullptr;
 	data->extensions_used = nullptr;
 	data->extensions_used_count = 0;
@@ -235,8 +235,7 @@ bool CgltfMaterialLoader::save(const FilePath& filePath)
 
         string* name = new string(pbrNode->getNamePath());
         material->name = const_cast<char*>(name->c_str());
-        //std::cout << "Write material: " << material->name << std::endl;
-
+        
         material->has_pbr_metallic_roughness = true;
         cgltf_pbr_metallic_roughness& roughness = material->pbr_metallic_roughness;
         initialize_cgltf_texture_view(roughness.base_color_texture);
