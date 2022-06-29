@@ -10,7 +10,6 @@
 
 MATERIALX_NAMESPACE_BEGIN
 
-class FilePath;
 class MaterialLoader;
 class CgltfMaterialLoader;
 
