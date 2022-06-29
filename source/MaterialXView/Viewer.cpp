@@ -628,6 +628,8 @@ void Viewer::createLoadMaterialsInterface(Widget* parent, const std::string& lab
                     mx::writeToXmlFile(materials, outputPath, &writeOptions);
                     gltfMTLXLoader->save(outputPath);
 
+                    // Load generated materials.
+                    // TODO: Bit clumsy. Need to change to accept an existing document.
                     _materialFilename = outputPath;
                     loadDocument(_materialFilename, _stdLib);
                 }

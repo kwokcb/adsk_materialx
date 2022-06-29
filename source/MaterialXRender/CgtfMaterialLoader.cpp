@@ -9,6 +9,7 @@
 #if defined(__GNUC__)
     #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Wswitch"
+    #pragma GCC diagnostic ignored "-Werror=format-truncation"
 #endif
 
 #if defined(_MSC_VER)
