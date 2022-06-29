@@ -19,7 +19,7 @@ using CgltfMaterialLoaderPtr = std::shared_ptr<class CgltfMaterialLoader>;
 
 /// @class MaterialLoader
 /// Wrapper for loader to read materials as MaterialX
-class MaterialLoader
+class MX_RENDER_API MaterialLoader
 {
   public:
     MaterialLoader() 
@@ -119,7 +119,7 @@ class MaterialLoader
 
 /// @class CgltfMateralLoader
 /// Wrapper for loader to read materials from GLTF files using the Cgltf library.
-class CgltfMaterialLoader : public MaterialLoader
+class MX_RENDER_API CgltfMaterialLoader : public MaterialLoader
 {
   public:
     CgltfMaterialLoader() 
