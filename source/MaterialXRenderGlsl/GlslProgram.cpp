@@ -3,7 +3,7 @@
 // All rights reserved.  See LICENSE.txt for license.
 //
 
-#include <MaterialXRenderGlsl/External/GLew/glew.h>
+#include <MaterialXRenderGlsl/External/Glad/glad.h>
 #include <MaterialXRenderGlsl/GlslProgram.h>
 #include <MaterialXRenderGlsl/GLTextureHandler.h>
 #include <MaterialXRenderGlsl/GLUtil.h>
@@ -68,9 +68,9 @@ void GlslProgram::setStages(ShaderPtr shader)
     clearInputLists();
 }
 
-void GlslProgram::addStage(const string& stage, const string& sourcCode)
+void GlslProgram::addStage(const string& stage, const string& sourceCode)
 {
-    _stages[stage] = sourcCode;
+    _stages[stage] = sourceCode;
 }
 
 const string& GlslProgram::getStageSourceCode(const string& stage) const
@@ -122,7 +122,7 @@ unsigned int GlslProgram::build()
 
     // Create vertex shader
     GLuint vertexShaderId = UNDEFINED_OPENGL_RESOURCE_ID;
-    string &vertexShaderSource = _stages[Stage::VERTEX];
+    const string &vertexShaderSource = _stages[Stage::VERTEX];
     if (vertexShaderSource.length())
     {
         vertexShaderId = glCreateShader(GL_VERTEX_SHADER);
@@ -153,7 +153,7 @@ unsigned int GlslProgram::build()
 
     // Create fragment shader
     GLuint fragmentShaderId = UNDEFINED_OPENGL_RESOURCE_ID;
-    string& fragmentShaderSource = _stages[Stage::PIXEL];
+    const string& fragmentShaderSource = _stages[Stage::PIXEL];
     if (fragmentShaderSource.length())
     {
         fragmentShaderId = glCreateShader(GL_FRAGMENT_SHADER);
@@ -478,7 +478,6 @@ ImagePtr GlslProgram::bindTexture(unsigned int uniformType, int uniformLocation,
         uniformType >= GL_SAMPLER_1D && uniformType <= GL_SAMPLER_CUBE)
     {
         // Acquire the image.
-        string error;
         ImagePtr image = imageHandler->acquireImage(filePath);
         if (imageHandler->bindImage(image, samplingProperties))
         {
@@ -523,7 +522,7 @@ void GlslProgram::bindTextures(ImageHandlerPtr imageHandler)
 
     // Bind textures based on uniforms found in the program
     const GlslProgram::InputMap& uniformList = getUniformsList();
-    VariableBlock& publicUniforms = _shader->getStage(Stage::PIXEL).getUniformBlock(HW::PUBLIC_UNIFORMS);
+    const VariableBlock& publicUniforms = _shader->getStage(Stage::PIXEL).getUniformBlock(HW::PUBLIC_UNIFORMS);
     for (const auto& uniform : uniformList)
     {
         GLenum uniformType = uniform.second->gltype;
@@ -565,7 +564,7 @@ void GlslProgram::bindLighting(LightHandlerPtr lightHandler, ImageHandlerPtr ima
     // Bind environment lighting properties.
     Matrix44 envRotation = Matrix44::createRotationY(PI) * lightHandler->getLightTransform().getTranspose();
     bindUniform(HW::ENV_MATRIX, Value::createValue(envRotation), false);
-    bindUniform(HW::ENV_RADIANCE_SAMPLES, Value::createValue(lightHandler->getEnvSamples()), false);
+    bindUniform(HW::ENV_RADIANCE_SAMPLES, Value::createValue(lightHandler->getEnvSampleCount()), false);
     ImageMap envImages =
     {
         { HW::ENV_RADIANCE, lightHandler->getIndirectLighting() ? lightHandler->getEnvRadianceMap() : imageHandler->getZeroImage() },
@@ -600,6 +599,8 @@ void GlslProgram::bindLighting(LightHandlerPtr lightHandler, ImageHandlerPtr ima
             }
         }
     }
+    bindUniform(HW::REFRACTION_ENV, Value::createValue(lightHandler->getRefractionEnv()), false);
+    bindUniform(HW::REFRACTION_COLOR, Value::createValue(lightHandler->getRefractionColor()), false);
 
     // Bind direct lighting properties.
     if (hasUniform(HW::NUM_ACTIVE_LIGHT_SOURCES))

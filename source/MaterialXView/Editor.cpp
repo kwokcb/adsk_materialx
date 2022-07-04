@@ -6,21 +6,10 @@
 #include <nanogui/slider.h>
 #include <nanogui/vscrollpanel.h>
 
-namespace {
-
-class EditorFormHelper : public ng::FormHelper
+namespace
 {
-  public:
-    explicit EditorFormHelper(ng::Screen *screen) : ng::FormHelper(screen) { }
-    ~EditorFormHelper() { }
-
-    void setPreGroupSpacing(int val) { m_pre_group_spacing = val; }
-    void setPostGroupSpacing(int val) { m_post_group_spacing = val; }
-    void setVariableSpacing(int val) { m_variable_spacing = val; }
-};
 
 // Custom color picker with numeric entry and feedback.
-//
 class EditorColorPicker : public ng::ColorPicker
 {
   public:
@@ -619,9 +608,15 @@ void PropertyEditor::updateContents(Viewer* viewer)
     }
 
     // Shading model display
-    if (elem->isA<mx::Node>())
+    mx::NodePtr node = elem->asA<mx::Node>();
+    if (node)
     {
-        std::string shaderName = elem->getCategory();
+        std::string shaderName = node->getCategory();
+        std::vector<mx::NodePtr> shaderNodes = mx::getShaderNodes(node);
+        if (!shaderNodes.empty())
+        {
+            shaderName = shaderNodes[0]->getCategory();
+        }
         if (!shaderName.empty() && shaderName != "surface")
         {
             ng::Widget* twoColumns = new ng::Widget(_container);
@@ -641,9 +636,7 @@ void PropertyEditor::updateContents(Viewer* viewer)
         mx::UIPropertyGroup groups;
         mx::UIPropertyGroup unnamedGroups;
         const std::string pathSeparator(":");
-        bool showAllInputs = viewer->getShowAllInputs();
-        mx::createUIPropertyGroups(elem->getDocument(), *publicUniforms, groups, unnamedGroups,
-                                   pathSeparator, showAllInputs); 
+        mx::createUIPropertyGroups(elem->getDocument(), *publicUniforms, groups, unnamedGroups, pathSeparator); 
 
         // First add items with named groups.
         std::string previousFolder;
@@ -743,7 +736,7 @@ ng::FloatBox<float>* createFloatWidget(ng::Widget* parent, const std::string& la
     return box;
 }
 
-ng::IntBox<int>* createIntWidget(ng::Widget* parent, const std::string& label, unsigned int value,
+ng::IntBox<int>* createIntWidget(ng::Widget* parent, const std::string& label, int value,
     const mx::UIProperties* ui, std::function<void(int)> callback)
 {
     new ng::Label(parent, label);

@@ -15,7 +15,7 @@ MATERIALX_NAMESPACE_BEGIN
 /// as input, and return a 2 channel vector as output
 const string BlurNode::_sampleSizeFunctionUV = "mx_compute_sample_size_uv";
 
-const float BlurNode::_filterSize = 2.0;
+const float BlurNode::_filterSize = 1.0;
 const float BlurNode::_filterOffset = 0.0;
 
 const string BlurNode::BOX_FILTER = "box";
@@ -143,10 +143,8 @@ void BlurNode::emitFunctionCall(const ShaderNode& node, GenContext& context, Sha
 
         if (sampleCount > 1)
         {
-            const string MX_WEIGHT_ARRAY_SIZE_STRING("MX_WEIGHT_ARRAY_SIZE");
             const string MX_CONVOLUTION_PREFIX_STRING("mx_convolution_");
             const string SAMPLES_POSTFIX_STRING("_samples");
-            const string WEIGHT_POSTFIX_STRING("_weights");
 
             // Set up sample array
             string sampleName(output->getVariable() + SAMPLES_POSTFIX_STRING);

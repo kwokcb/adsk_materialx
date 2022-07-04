@@ -75,8 +75,34 @@ MeshStreamPtr Mesh::generateNormals(MeshStreamPtr positionStream)
     return normalStream;
 }
 
+MeshStreamPtr Mesh::generateTextureCoordinates(MeshStreamPtr positionStream)
+{
+    size_t vertexCount = positionStream->getData().size() / MeshStream::STRIDE_3D;
+    MeshStreamPtr texcoordStream = MeshStream::create("i_" + MeshStream::TEXCOORD_ATTRIBUTE + "_0", MeshStream::TEXCOORD_ATTRIBUTE, 0);
+    texcoordStream->setStride(MeshStream::STRIDE_2D);
+    texcoordStream->resize(vertexCount);
+    std::fill(texcoordStream->getData().begin(), texcoordStream->getData().end(), 0.0f);
+
+    return texcoordStream;
+}
+
 MeshStreamPtr Mesh::generateTangents(MeshStreamPtr positionStream, MeshStreamPtr normalStream, MeshStreamPtr texcoordStream)
 {
+    if (!positionStream)
+    {
+        return nullptr;
+    }
+    if (!texcoordStream)
+    {
+        texcoordStream = generateTextureCoordinates(positionStream);
+        addStream(texcoordStream);
+    }
+    if (!normalStream)
+    {
+        normalStream = generateNormals(positionStream);
+        addStream(normalStream);
+    }
+
     size_t vertexCount = positionStream->getData().size() / positionStream->getStride();
     size_t normalCount = normalStream->getData().size() / normalStream->getStride();
     size_t texcoordCount = texcoordStream->getData().size() / texcoordStream->getStride();
@@ -260,6 +286,9 @@ void MeshStream::transform(const Matrix44 &matrix)
              getType() == MeshStream::TANGENT_ATTRIBUTE ||
              getType() == MeshStream::BITANGENT_ATTRIBUTE)
     {
+        bool isNormalStream = (getType() == MeshStream::NORMAL_ATTRIBUTE);
+        Matrix44 transformMatrix = isNormalStream ? matrix.getInverse().getTranspose() : matrix;
+
         for (size_t i=0; i<numElements; i++)
         {
             Vector3 vec(0.0, 0.0, 0.0);
@@ -267,7 +296,7 @@ void MeshStream::transform(const Matrix44 &matrix)
             {
                 vec[j] = _data[i*stride + j];
             }
-            vec = matrix.transformNormal(vec);
+            vec = transformMatrix.transformVector(vec).getNormalized();
             for (size_t k=0; k<stride; k++)
             {
                 _data[i*stride + k] = vec[k];

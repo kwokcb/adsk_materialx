@@ -56,6 +56,8 @@ TextureBaker::TextureBaker(unsigned int width, unsigned int height, Image::BaseT
     _textureFilenameTemplate("$MATERIAL_$SHADINGMODEL_$INPUT$UDIMPREFIX$UDIM.$EXTENSION"),
     _outputStream(&std::cout),
     _hashImageNames(false),
+    _textureSpaceMin(0.0f),
+    _textureSpaceMax(1.0f),
     _generator(GlslShaderGenerator::create()),
     _permittedOverrides({ "$ASSET", "$MATERIAL", "$UDIMPREFIX" })
 {
@@ -79,7 +81,7 @@ TextureBaker::TextureBaker(unsigned int width, unsigned int height, Image::BaseT
     }
 
     // Initialize our base renderer.
-    initialize();
+    GlslRenderer::initialize();
 
     // Initialize our image handler.
     _imageHandler = GLTextureHandler::create(StbImageLoader::create());
@@ -121,6 +123,14 @@ FilePath TextureBaker::generateTextureFilename(const StringMap& filenameTemplate
         {
             bakedImageName.replace(i, pair.first.length(), replacement);
         }
+    }
+
+    if (_hashImageNames)
+    {
+        std::stringstream hashStream;
+        hashStream << std::hash<std::string>{}(bakedImageName);
+        hashStream << "." + getExtension();
+        bakedImageName = hashStream.str();
     }
     return _outputImagePath / bakedImageName;
 }
@@ -210,10 +220,10 @@ void TextureBaker::bakeGraphOutput(OutputPtr output, GenContext& context, const 
 
     bool encodeSrgb = _colorSpace == SRGB_TEXTURE &&
         (output->getType() == "color3" || output->getType() == "color4");
-    getFrameBuffer()->setEncodeSrgb(encodeSrgb);
+    getFramebuffer()->setEncodeSrgb(encodeSrgb);
 
     // Render and capture the requested image.
-    renderTextureSpace();
+    renderTextureSpace(getTextureSpaceMin(), getTextureSpaceMax());
     string texturefilepath = generateTextureFilename(filenameTemplateMap);
     captureImage(_frameCaptureImage);
 
@@ -326,7 +336,7 @@ DocumentPtr TextureBaker::generateNewDocumentFromShader(NodePtr shader, const St
     GeomInfoPtr bakedGeom = !udimSet.empty() ? bakedTextureDoc->addGeomInfo(_bakedGeomInfoName) : nullptr;
     if (bakedGeom)
     {
-        bakedGeom->setGeomPropValue("udimset", udimSet, "stringarray");
+        bakedGeom->setGeomPropValue(UDIM_SET_PROPERTY, udimSet, "stringarray");
     }
 
     // Create a shader node.
@@ -460,7 +470,7 @@ DocumentPtr TextureBaker::generateNewDocumentFromShader(NodePtr shader, const St
 }
 
 DocumentPtr TextureBaker::bakeMaterialToDoc(DocumentPtr doc, const FileSearchPath& searchPath, const string& materialPath, 
-                                            const StringVec udimSet, string& documentName)
+                                            const StringVec& udimSet, string& documentName)
 {
     if (_outputStream)
     {
@@ -475,10 +485,7 @@ DocumentPtr TextureBaker::bakeMaterialToDoc(DocumentPtr doc, const FileSearchPat
 
     DefaultColorManagementSystemPtr cms = DefaultColorManagementSystem::create(genContext.getShaderGenerator().getTarget());
     cms->loadLibrary(doc);
-    for (const FilePath& path : searchPath)
-    {
-        genContext.registerSourceCodeSearchPath(path / "libraries");
-    }
+    genContext.registerSourceCodeSearchPath(searchPath);
     genContext.getShaderGenerator().setColorManagementSystem(cms);
 
     // Compute the material tag set.
@@ -544,7 +551,7 @@ void TextureBaker::bakeAllMaterials(DocumentPtr doc, const FileSearchPath& searc
     findRenderableElements(doc, renderableMaterials);
 
     // Compute the UDIM set.
-    ValuePtr udimSetValue = doc->getGeomPropValue("udimset");
+    ValuePtr udimSetValue = doc->getGeomPropValue(UDIM_SET_PROPERTY);
     StringVec udimSet;
     if (udimSetValue && udimSetValue->isA<StringVec>())
     {

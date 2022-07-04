@@ -9,6 +9,9 @@
 
 MATERIALX_NAMESPACE_BEGIN
 
+const Color3 DEFAULT_SCREEN_COLOR_SRGB(0.3f, 0.3f, 0.32f);
+const Color3 DEFAULT_SCREEN_COLOR_LIN_REC709(DEFAULT_SCREEN_COLOR_SRGB.srgbToLinear());
+
 ShaderPtr createShader(const string& shaderName, GenContext& context, ElementPtr elem)
 {
     return context.getShaderGenerator().generate(shaderName, elem, context);
@@ -239,7 +242,7 @@ unsigned int getUIProperties(InputPtr input, const string& target, UIProperties&
 }
 
 void createUIPropertyGroups(DocumentPtr doc, const VariableBlock& block, UIPropertyGroup& groups,
-                            UIPropertyGroup& unnamedGroups, const string& pathSeparator, bool showAllInputs)
+                            UIPropertyGroup& unnamedGroups, const string& pathSeparator)
 {
     // Assign a depth-first index to each element in the document.
     std::unordered_map<ConstElementPtr, int> indexMap;
@@ -270,22 +273,6 @@ void createUIPropertyGroups(DocumentPtr doc, const VariableBlock& block, UIPrope
             if (interfaceInput)
             {
                 input = interfaceInput;
-            }
-        }
-
-        // If requested, add missing inputs from the associated nodedef.
-        if (showAllInputs && !input)
-        {
-            string nodePath = parentNamePath(variable->getPath());
-            ElementPtr parent = doc->getDescendant(nodePath);
-            if (parent)
-            {
-                NodePtr parentNode = parent->asA<Node>();
-                if (parentNode)
-                {
-                    StringVec pathVec = splitNamePath(variable->getPath());
-                    input = parentNode->addInputFromNodeDef(pathVec[pathVec.size() - 1]);
-                }
             }
         }
 

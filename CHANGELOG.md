@@ -1,6 +1,50 @@
 # Change Log
 
-## [1.38.4] - Development
+## [1.38.5] - Development
+
+### Added
+- Added a [refraction approximation](https://github.com/AcademySoftwareFoundation/MaterialX/pull/918) for transmissive surfaces in GLSL, selected by the hwTransmissionRenderMethod generator option.
+- Added support for generalized Schlick transmission in GLSL and OSL.
+- Added support for code generation from material nodes.
+- Added a specialization of GlslShaderGenerator for Vulkan GLSL generation.
+- Added the [Chess Set](https://github.com/AcademySoftwareFoundation/MaterialX/pull/982) example from the [Karma: A Beautiful Game](https://www.sidefx.com/tutorials/karma-a-beautiful-game/) tutorial.  Contributed to the MaterialX project by SideFX, original artwork by Moeen and Mujtaba Sayed.
+- Added static and dynamic analysis tests to GitHub Actions builds.
+- Added support for GCC 12, Clang 13, and Clang 14.
+
+### Changed
+- Switched to [relative shader includes](https://github.com/AcademySoftwareFoundation/MaterialX/pull/926) within the MaterialX data libraries, enabling custom folder names in distributions.
+- Improved and extended the sample [Web Viewer](https://academysoftwarefoundation.github.io/MaterialX/).
+
+### Fixed
+- Fixed math for normalizing normal and tangent vectors in GLSL.
+- Fixed math for transforming a vector4 by a matrix in OSL.
+- Fixed compatibility of OSL Worley noise with OSL 1.9.10.
+- Fixed layering of thin-film effects in the Standard Surface shading model.
+- Fixed input default values in the glTF PBR shading model.
+
+## [1.38.4] - 2022-04-06
+
+### Added
+- Added [JavaScript bindings](https://github.com/AcademySoftwareFoundation/MaterialX/tree/main/javascript) for MaterialXCore, MaterialXFormat, and MaterialXGenGlsl.
+- Added a sample [Web Viewer](https://academysoftwarefoundation.github.io/MaterialX/), built and deployed through GitHub Actions.
+- Added a MaterialX graph for the [glTF PBR](libraries/bxdf/gltf_pbr.mtlx) shading model.
+- Added new 'worleynoise2d' and 'worleynoise3d' nodes, with implementations in GLSL, OSL, and MDL.
+- Added new 'surface_unlit' node, with implementations in GLSL, OSL, and MDL.
+- Added support for the glTF geometry format in MaterialXRender and MaterialXView.
+
+### Changed
+- Moved the MaterialX project to the [Academy Software Foundation GitHub](https://github.com/AcademySoftwareFoundation/MaterialX).
+- Removed hardcoded references to "libraries" in calls to GenContext::registerSourceCodeSearchPath.  (See Developer Notes below for additional details.)
+- Improved the accuracy of mx_ggx_dir_albedo_analytic and mx_fresnel_conductor in GLSL.
+- Updated the PyBind11 library to version 2.9.0.
+
+### Fixed
+- Aligned GLSL and MDL implementations of 'fractal3d' with OSL.
+- Fixed MDL implementations of 'sheen_bsdf' and 'thin_film_bsdf'.
+- Fixed an error in code generation from multi-output node graphs.
+
+### Developer Notes
+- This release removes hardcoded references to "libraries" in calls to GenContext::registerSourceCodeSearchPath within the MaterialX codebase.  Applications with their own custom code generators should make the same change, removing hardcoded references to "libraries" in calls to GenContext::registerSourceCodeSearchPath.  See pull request [877](https://github.com/AcademySoftwareFoundation/MaterialX/pull/877) for coding details.
 
 ## [1.38.3] - 2021-12-14
 

@@ -9,6 +9,7 @@
 #include <MaterialXRender/Camera.h>
 #include <MaterialXRender/GeometryHandler.h>
 #include <MaterialXRender/LightHandler.h>
+#include <MaterialXRender/Timer.h>
 
 #include <MaterialXGenGlsl/GlslShaderGenerator.h>
 
@@ -45,6 +46,18 @@ class Viewer : public ng::Screen
         _meshScale = scale;
     }
 
+    // Set whether turntable rendering is enabled.
+    void setTurntableEnabled(bool val)
+    {
+        _turntableEnabled = val;
+    }
+
+    // Set the total number of steps for one 360 degree rotation.
+    void setTurntableSteps(int steps)
+    {
+        _turntableSteps = steps;
+    }
+
     // Set the world-space position of the camera.
     void setCameraPosition(const mx::Vector3& position)
     {
@@ -78,13 +91,25 @@ class Viewer : public ng::Screen
     // Set the number of environment samples.
     void setEnvSampleCount(int count)
     {
-        _envSampleCount = count;
+        _lightHandler->setEnvSampleCount(count);
     }
 
     // Set the rotation of the lighting environment about the Y axis.
     void setLightRotation(float rotation)
     {
         _lightRotation = rotation;
+    }
+
+    // Enable or disable shadow maps.
+    void setShadowMapEnable(bool enable)
+    {
+        _genContext.getOptions().hwShadowMap = enable;
+    }
+
+    // Enable or disable drawing environment as the background.
+    void setDrawEnvironment(bool enable)
+    {
+        _drawEnvironment = enable;
     }
 
     // Set the modifiers to be applied to loaded documents.
@@ -150,7 +175,7 @@ class Viewer : public ng::Screen
     }
 
     // Request a capture of the current frame, writing it to the given filename.
-    void requestFrameCapture(const mx::FilePath filename)
+    void requestFrameCapture(const mx::FilePath& filename)
     {
         _captureRequested = true;
         _captureFilename = filename;
@@ -229,21 +254,29 @@ class Viewer : public ng::Screen
     // returning a new indirect map and directional light document.
     void splitDirectLight(mx::ImagePtr envRadianceMap, mx::ImagePtr& indirectMap, mx::DocumentPtr& dirLightDoc);
 
-    void updateShadowMap();
+    MaterialPtr getEnvironmentMaterial();
+    MaterialPtr getWireframeMaterial();
+
+    mx::ImagePtr getShadowMap();
     void invalidateShadowMap();
 
     void renderFrame();
     mx::ImagePtr getFrameImage();
     mx::ImagePtr renderWedge();
+    void renderTurnable();
     void renderScreenSpaceQuad(MaterialPtr material);
 
     // Update the directional albedo table.
     void updateAlbedoTable();
 
+    // Toggle turntable
+    void toggleTurntable(bool enable);
+
   private:
     ng::Window* _window;
 
     mx::FilePath _materialFilename;
+    mx::FileSearchPath _materialSearchPath;
     mx::FilePath _meshFilename;
     mx::FilePath _envRadianceFilename;
 
@@ -253,6 +286,11 @@ class Viewer : public ng::Screen
     mx::Vector3 _meshTranslation;
     mx::Vector3 _meshRotation;
     float _meshScale;
+
+    bool _turntableEnabled;
+    int _turntableSteps;
+    int _turntableStep;
+    mx::ScopedTimer _turntableTimer;
 
     mx::Vector3 _cameraPosition;
     mx::Vector3 _cameraTarget;
@@ -277,8 +315,6 @@ class Viewer : public ng::Screen
     mx::FilePath _lightRigFilename;
     mx::DocumentPtr _lightRigDoc;
     float _lightRotation;
-    bool _directLighting;
-    bool _indirectLighting;
 
     // Light processing options
     bool _normalizeEnvironment;
@@ -354,7 +390,6 @@ class Viewer : public ng::Screen
     bool _renderTransparency;
     bool _renderDoubleSided;
     bool _outlineSelection;
-    int _envSampleCount;
     bool _drawEnvironment;
 
     // Shader translation
@@ -374,7 +409,6 @@ class Viewer : public ng::Screen
     unsigned int _wedgeImageCount;
 
     // Texture baking
-    bool _bakeTextures;
     bool _bakeHdr;
     bool _bakeAverage;
     bool _bakeOptimize;

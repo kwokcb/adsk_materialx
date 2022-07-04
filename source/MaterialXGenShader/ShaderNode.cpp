@@ -138,6 +138,7 @@ const string ShaderNode::CONSTANT = "constant";
 const string ShaderNode::IMAGE = "image";
 const string ShaderNode::COMPARE = "compare";
 const string ShaderNode::SWITCH = "switch";
+const string ShaderNode::SURFACESHADER = "surfaceshader";
 const string ShaderNode::SCATTER_MODE = "scatter_mode";
 const string ShaderNode::BSDF_R = "R";
 const string ShaderNode::BSDF_T = "T";
@@ -235,21 +236,6 @@ ShaderNodePtr ShaderNode::create(const ShaderGraph* parent, const string& name, 
             "' matching target '" + shadergen.getTarget() + "'");
     }
 
-    // Check for classification based on group name
-    unsigned int groupClassification = 0;
-    string groupName = nodeDef.getNodeGroup();
-    if (!groupName.empty())
-    {
-        if (groupName == TEXTURE2D_GROUPNAME || groupName == PROCEDURAL2D_GROUPNAME)
-        {
-            groupClassification = Classification::SAMPLE2D;
-        }
-        else if (groupName == TEXTURE3D_GROUPNAME || groupName == PROCEDURAL3D_GROUPNAME)
-        {
-            groupClassification = Classification::SAMPLE3D;
-        }
-    }
-
     // Create interface from nodedef
     for (const ValueElementPtr& port : nodeDef.getActiveValueElements())
     {
@@ -293,6 +279,9 @@ ShaderNodePtr ShaderNode::create(const ShaderGraph* parent, const string& name, 
         newNode->addOutput("out", TypeDesc::get(nodeDef.getType()));
     }
 
+    const string& nodeDefName = nodeDef.getName();
+    const string& groupName = nodeDef.getNodeGroup();
+
     //
     // Set node classification, defaulting to texture node
     //
@@ -300,9 +289,20 @@ ShaderNodePtr ShaderNode::create(const ShaderGraph* parent, const string& name, 
 
     // First, check for specific output types
     const ShaderOutput* primaryOutput = newNode->getOutput();
-    if (primaryOutput->getType() == Type::SURFACESHADER)
+    if (primaryOutput->getType() == Type::MATERIAL)
     {
-        newNode->_classification = Classification::SURFACE | Classification::SHADER | Classification::CLOSURE;
+        newNode->_classification = Classification::MATERIAL;
+    }
+    else if (primaryOutput->getType() == Type::SURFACESHADER)
+    {
+        if (nodeDefName == "ND_surface_unlit")
+        {
+            newNode->_classification = Classification::SHADER | Classification::SURFACE | Classification::UNLIT;
+        }
+        else
+        {
+            newNode->_classification = Classification::SHADER | Classification::SURFACE | Classification::CLOSURE;
+        }
     }
     else if (primaryOutput->getType() == Type::LIGHTSHADER)
     {
@@ -328,12 +328,12 @@ ShaderNodePtr ShaderNode::create(const ShaderGraph* parent, const string& name, 
         }
 
         // Check specifically for the vertical layering node
-        if (nodeDef.getName() == "ND_layer_bsdf" || nodeDef.getName() == "ND_layer_vdf")
+        if (nodeDefName == "ND_layer_bsdf" || nodeDefName == "ND_layer_vdf")
         {
             newNode->_classification |= Classification::LAYER;
         }
         // Check specifically for the thin-film node
-        else if (nodeDef.getName() == "ND_thin_film_bsdf")
+        else if (nodeDefName == "ND_thin_film_bsdf")
         {
             newNode->_classification |= Classification::THINFILM;
         }
@@ -365,8 +365,15 @@ ShaderNodePtr ShaderNode::create(const ShaderGraph* parent, const string& name, 
         newNode->_classification = Classification::TEXTURE | Classification::FILETEXTURE;
     }
 
-    // Add in group classification
-    newNode->_classification |= groupClassification;
+    // Add in classification based on group name
+    if (groupName == TEXTURE2D_GROUPNAME || groupName == PROCEDURAL2D_GROUPNAME)
+    {
+        newNode->_classification |= Classification::SAMPLE2D;
+    }
+    else if (groupName == TEXTURE3D_GROUPNAME || groupName == PROCEDURAL3D_GROUPNAME)
+    {
+        newNode->_classification |= Classification::SAMPLE3D;
+    }
 
     // Create any metadata.
     newNode->createMetadata(nodeDef, context);

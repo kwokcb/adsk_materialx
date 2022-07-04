@@ -55,7 +55,8 @@ bool getShaderSource(mx::GenContext& context,
             return true;
         }
         sourcePath = implementation->getFile();
-        mx::FilePath resolvedPath = context.resolveSourceFile(sourcePath);
+        mx::FilePath localPath = mx::FilePath(implementation->getSourceUri()).getParentPath();
+        mx::FilePath resolvedPath = context.resolveSourceFile(sourcePath, localPath);
         sourceContents = mx::readFile(resolvedPath);
         resolvedSource = resolvedPath.asString();
         return !sourceContents.empty();
@@ -73,10 +74,8 @@ void checkImplementations(mx::GenContext& context,
 
     const mx::ShaderGenerator& shadergen = context.getShaderGenerator();
 
-    mx::FileSearchPath searchPath; 
-    mx::FilePath librariesRoot = mx::FilePath::getCurrentPath() / mx::FilePath("libraries");
-    searchPath.append(librariesRoot);
-    loadLibraries({ "targets", "adsk", "stdlib", "pbrlib" }, searchPath, doc);
+    mx::FileSearchPath searchPath(mx::FilePath::getCurrentPath());
+    loadLibraries({ "libraries/targets", "libraries/stdlib", "libraries/pbrlib" }, searchPath, doc);
 
     const std::string& target = shadergen.getTarget();
 
@@ -86,9 +85,7 @@ void checkImplementations(mx::GenContext& context,
     implDumpBuffer.open(fileName, std::ios::out);
     std::ostream implDumpStream(&implDumpBuffer);
 
-    mx::FileSearchPath sourceSearchPath = searchPath;
-    sourceSearchPath.append(librariesRoot / mx::FilePath("adsk"));
-    context.registerSourceCodeSearchPath(sourceSearchPath);
+    context.registerSourceCodeSearchPath(searchPath);
 
     // Node types to explicitly skip temporarily.
     mx::StringSet skipNodeTypes =
@@ -289,9 +286,8 @@ void testUniqueNames(mx::GenContext& context, const std::string& stage)
 {
     mx::DocumentPtr doc = mx::createDocument();
 
-    mx::FileSearchPath searchPath;
-    searchPath.append(mx::FilePath::getCurrentPath() / mx::FilePath("libraries"));
-    loadLibraries({ "targets", "stdlib" }, searchPath, doc);
+    mx::FileSearchPath searchPath(mx::FilePath::getCurrentPath());
+    loadLibraries({ "libraries/targets", "libraries/stdlib" }, searchPath, doc);
 
     const std::string exampleName = "unique_names";
 
@@ -488,8 +484,7 @@ void ShaderGeneratorTester::setupDependentLibraries()
     _dependLib = mx::createDocument();
 
     // Load the standard libraries.
-    const mx::FilePathVec libraries = { "targets", "adsk", "stdlib", "pbrlib", "bxdf", "lights" };
-    loadLibraries(libraries, _libSearchPath, _dependLib, _skipLibraryFiles);
+    loadLibraries({ "libraries" }, _libSearchPath, _dependLib, _skipLibraryFiles);
 }
 
 void ShaderGeneratorTester::addSkipFiles()
@@ -726,32 +721,15 @@ void ShaderGeneratorTester::validate(const mx::GenOptions& generateOptions, cons
         int codeGenerationFailures = 0;
         for (const auto& element : elements)
         {
-            mx::TypedElementPtr targetElement = element;
-            mx::OutputPtr output = targetElement->asA<mx::Output>();
-            mx::NodePtr outputNode = targetElement->asA<mx::Node>();
-            mx::NodeDefPtr nodeDef = nullptr;
+            const std::string namePath(element->getNamePath());
+            mx::OutputPtr output = element->asA<mx::Output>();
+            mx::NodePtr outputNode = element->asA<mx::Node>();
             if (output)
             {
                 outputNode = output->getConnectedNode();
-                // Handle connected upstream material nodes later on.
-                if (outputNode->getType() != mx::MATERIAL_TYPE_STRING)
-                {
-                    nodeDef = outputNode->getNodeDef();
-                }
             }
 
-            // Handle material node checking. For now only check first surface shader if any
-            if (outputNode && outputNode->getType() == mx::MATERIAL_TYPE_STRING)
-            {
-                std::vector<mx::NodePtr> shaderNodes = getShaderNodes(outputNode);
-                if (!shaderNodes.empty())
-                {
-                    nodeDef = shaderNodes[0]->getNodeDef();
-                    targetElement = shaderNodes[0];
-                }
-            }
-
-            const std::string namePath(targetElement->getNamePath());
+            mx::NodeDefPtr nodeDef = outputNode->getNodeDef();
             if (nodeDef)
             {
                 // Allow to skip nodedefs to test if specified
@@ -772,7 +750,7 @@ void ShaderGeneratorTester::validate(const mx::GenOptions& generateOptions, cons
                     _logFile << "------------ Run validation with element: " << namePath << "------------" << std::endl;
 
                     mx::StringVec sourceCode;
-                    bool generatedCode = generateCode(context, elementName, targetElement, _logFile, _testStages, sourceCode);
+                    const bool generatedCode = generateCode(context, elementName, element, _logFile, _testStages, sourceCode);
 
                     // Record implementations tested
                     if (options.checkImplCount)
@@ -898,14 +876,13 @@ void TestSuiteOptions::print(std::ostream& output) const
     output << "\tDump uniforms and Attributes  " << dumpUniformsAndAttributes << std::endl;
     output << "\tNon-Shaded Geometry: " << unShadedGeometry.asString() << std::endl;
     output << "\tShaded Geometry: " << shadedGeometry.asString() << std::endl;
-    output << "\tGeometry Scale: " << geometryScale << std::endl;
     output << "\tEnable Direct Lighting: " << enableDirectLighting << std::endl;
     output << "\tEnable Indirect Lighting: " << enableIndirectLighting << std::endl;
-    output << "\tSpecular Environment Method: " << specularEnvironmentMethod << std::endl;
     output << "\tRadiance IBL File Path " << radianceIBLPath.asString() << std::endl;
     output << "\tIrradiance IBL File Path: " << irradianceIBLPath.asString() << std::endl;
     output << "\tExtra library paths: " << extraLibraryPaths.asString() << std::endl;
     output << "\tRender test paths: " << renderTestPaths.asString() << std::endl;
+    output << "\tEnable Reference Quality: " << enableReferenceQuality << std::endl;
 }
 
 bool TestSuiteOptions::readOptions(const std::string& optionFile)
@@ -928,55 +905,110 @@ bool TestSuiteOptions::readOptions(const std::string& optionFile)
     const std::string DUMP_GENERATED_CODE_STRING("dumpGeneratedCode");
     const std::string UNSHADED_GEOMETRY_STRING("unShadedGeometry");
     const std::string SHADED_GEOMETRY_STRING("shadedGeometry");
-    const std::string GEOMETRY_SCALE_STRING("geometryScale");
     const std::string ENABLE_DIRECT_LIGHTING("enableDirectLighting");
     const std::string ENABLE_INDIRECT_LIGHTING("enableIndirectLighting");
-    const std::string SPECULAR_ENVIRONMENT_METHOD("specularEnvironmentMethod");
     const std::string RADIANCE_IBL_PATH_STRING("radianceIBLPath");
     const std::string IRRADIANCE_IBL_PATH_STRING("irradianceIBLPath");
-    const std::string SPHERE_OBJ("sphere.obj");
-    const std::string SHADERBALL_OBJ("shaderball.obj");
+    const std::string SPHERE_GEOMETRY("sphere.obj");
     const std::string EXTRA_LIBRARY_PATHS("extraLibraryPaths");
     const std::string RENDER_TEST_PATHS("renderTestPaths");
-    const std::string WEDGE_FILES("wedgeFiles");
-    const std::string WEDGE_PARAMETERS("wedgeParameters");
-    const std::string WEDGE_RANGE_MIN("wedgeRangeMin");
-    const std::string WEDGE_RANGE_MAX("wedgeRangeMax");
-    const std::string WEDGE_STEPS("wedgeSteps");
-    const std::string BAKE_FILES("bakeFiles");
-    const std::string BAKE_HDRS("bakeHdrs");
-    const std::string BAKE_RESOLUTIONS("bakeResolutions");
+    const std::string ENABLE_REFERENCE_QUALITY("enableReferenceQuality");
+    const std::string WEDGE_SETTING("wedgerender");
+    const std::string BAKER_SETTINGS("baker");
 
     overrideFiles.clear();
     dumpGeneratedCode = false;
-    unShadedGeometry = SPHERE_OBJ;
-    shadedGeometry = SHADERBALL_OBJ;
-    geometryScale = 1.0f;
+    unShadedGeometry = SPHERE_GEOMETRY;
+    shadedGeometry = SPHERE_GEOMETRY;
     enableDirectLighting = true;
     enableIndirectLighting = true;
-    specularEnvironmentMethod = mx::SPECULAR_ENVIRONMENT_FIS;
+    enableReferenceQuality = false;
 
-    MaterialX::DocumentPtr doc = MaterialX::createDocument();
+    mx::DocumentPtr doc = mx::createDocument();
     try
     {
-        MaterialX::readFromXmlFile(doc, optionFile, mx::FileSearchPath());
+        mx::readFromXmlFile(doc, optionFile, mx::FileSearchPath());
 
-        MaterialX::NodeDefPtr optionDefs = doc->getNodeDef(RENDER_TEST_OPTIONS_STRING);
+        mx::NodeDefPtr optionDefs = doc->getNodeDef(RENDER_TEST_OPTIONS_STRING);
         if (optionDefs)
         {
+            // Read Wedge Render Settings
+            for (mx::ElementPtr p : optionDefs->getChildrenOfType<mx::Element>(WEDGE_SETTING))
+            {
+                WedgeSetting setting;
+                for (auto child : p->getChildren())
+                {
+                    mx::InputPtr input = child->asA<mx::Input>();
+                    const std::string& name = input->getName();
+                    mx::ValuePtr val = input->getValue();
+
+                    if (name == "file")
+                    {
+                        setting.wedgeFile = val->asA<std::string>();
+                    }
+                    else if (name == "parameter")
+                    {
+                        setting.parameter = val->asA<std::string>();
+                    }
+                    else if (name == "range")
+                    {
+                        setting.range = val->asA<mx::Vector2>();
+                    }
+                    else if (name == "steps")
+                    {
+                        setting.steps = val->asA<int>();
+                    }
+                }
+                wedgeSettings.push_back(setting);
+            }
+
+            // Read Baker Settings
+            for (mx::ElementPtr p : optionDefs->getChildrenOfType<mx::Element>(BAKER_SETTINGS))
+            {
+                BakeSetting setting;
+                for (auto child : p->getChildren())
+                {
+                    mx::InputPtr input = child->asA<mx::Input>();
+                    const std::string& name = input->getName();
+                    mx::ValuePtr val = input->getValue();
+
+                    if (name == "file")
+                    {
+                        setting.bakeFile = val->asA<std::string>();
+                    }
+                    else if (name == "resolution")
+                    {
+                        setting.resolution = val->asA<int>();
+                    }
+                    else if (name == "hdr")
+                    {
+                        setting.hdr = val->asA<bool>();
+                    }
+                    else if (name == "uvmin")
+                    {
+                        setting.uvmin = val->asA<mx::Vector2>();
+                    }
+                    else if (name == "uvmax")
+                    {
+                        setting.uvmax = val->asA<mx::Vector2>();
+                    }
+                }
+                bakeSettings.push_back(setting);
+            }
+
             for (auto p : optionDefs->getInputs())
             {
                 const std::string& name = p->getName();
-                MaterialX::ValuePtr val = p->getValue();
+                mx::ValuePtr val = p->getValue();
                 if (val)
                 {
                     if (name == OVERRIDE_FILES_STRING)
                     {
-                        overrideFiles = MaterialX::splitString(p->getValueString(), ",");
+                        overrideFiles = mx::splitString(p->getValueString(), ",");
                     }
                     else if (name == LIGHT_FILES_STRING)
                     {
-                        lightFiles = MaterialX::splitString(p->getValueString(), ",");
+                        lightFiles = mx::splitString(p->getValueString(), ",");
                     }
                     else if (name == SHADER_INTERFACES_STRING)
                     {
@@ -1030,10 +1062,6 @@ bool TestSuiteOptions::readOptions(const std::string& optionFile)
                     {
                         shadedGeometry = p->getValueString();
                     }
-                    else if (name == GEOMETRY_SCALE_STRING)
-                    {
-                        geometryScale = val->asA<float>();
-                    }
                     else if (name == ENABLE_DIRECT_LIGHTING)
                     {
                         enableDirectLighting = val->asA<bool>();
@@ -1041,10 +1069,6 @@ bool TestSuiteOptions::readOptions(const std::string& optionFile)
                     else if (name == ENABLE_INDIRECT_LIGHTING)
                     {
                         enableIndirectLighting = val->asA<bool>();
-                    }
-                    else if (name == SPECULAR_ENVIRONMENT_METHOD)
-                    {
-                        specularEnvironmentMethod = (mx::HwSpecularEnvironmentMethod) val->asA<int>();
                     }
                     else if (name == RADIANCE_IBL_PATH_STRING)
                     {
@@ -1070,37 +1094,9 @@ bool TestSuiteOptions::readOptions(const std::string& optionFile)
                             renderTestPaths.append(mx::FilePath(l));
                         }
                     }
-                    else if (name == WEDGE_FILES)
+                    else if (name == ENABLE_REFERENCE_QUALITY)
                     {
-                        wedgeFiles = mx::splitString(p->getValueString(), ",");
-                    }
-                    else if (name == WEDGE_PARAMETERS)
-                    {
-                        wedgeParameters = mx::splitString(p->getValueString(), ",");
-                    }
-                    else if (name == WEDGE_STEPS)
-                    {
-                        wedgeSteps = val->asA<mx::IntVec>();
-                    }
-                    else if (name == WEDGE_RANGE_MIN)
-                    {
-                        wedgeRangeMin = val->asA<mx::FloatVec>();
-                    }
-                    else if (name == WEDGE_RANGE_MAX)
-                    {
-                        wedgeRangeMax = val->asA<mx::FloatVec>();
-                    }
-                    else if (name == BAKE_FILES)
-                    {
-                        bakeFiles = mx::splitString(p->getValueString(), ",");
-                    }
-                    else if (name == BAKE_RESOLUTIONS)
-                    {
-                        bakeResolutions = val->asA<mx::IntVec>();
-                    }
-                    else if (name == BAKE_HDRS)
-                    {
-                        bakeHdrs = val->asA<mx::BoolVec>();
+                        enableReferenceQuality = val->asA<bool>();
                     }
                 }
             }

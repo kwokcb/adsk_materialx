@@ -16,6 +16,7 @@
 #include <MaterialXGenGlsl/Nodes/FrameNodeGlsl.h>
 #include <MaterialXGenGlsl/Nodes/TimeNodeGlsl.h>
 #include <MaterialXGenGlsl/Nodes/SurfaceNodeGlsl.h>
+#include <MaterialXGenGlsl/Nodes/UnlitSurfaceNodeGlsl.h>
 #include <MaterialXGenGlsl/Nodes/LightNodeGlsl.h>
 #include <MaterialXGenGlsl/Nodes/LightCompoundNodeGlsl.h>
 #include <MaterialXGenGlsl/Nodes/LightShaderNodeGlsl.h>
@@ -27,6 +28,7 @@
 #include <MaterialXGenGlsl/Nodes/TransformNormalNodeGlsl.h>
 #include <MaterialXGenGlsl/Nodes/BlurNodeGlsl.h>
 
+#include <MaterialXGenShader/Nodes/MaterialNode.h>
 #include <MaterialXGenShader/Nodes/SwizzleNode.h>
 #include <MaterialXGenShader/Nodes/ConvertNode.h>
 #include <MaterialXGenShader/Nodes/CombineNode.h>
@@ -205,6 +207,8 @@ GlslShaderGenerator::GlslShaderGenerator() :
 
     // <!-- <surface> -->
     registerImplementation("IM_surface_" + GlslShaderGenerator::TARGET, SurfaceNodeGlsl::create);
+    registerImplementation("IM_surface_unlit_" + GlslShaderGenerator::TARGET, UnlitSurfaceNodeGlsl::create);
+
     // <!-- <light> -->
     registerImplementation("IM_light_" + GlslShaderGenerator::TARGET, LightNodeGlsl::create);
 
@@ -260,6 +264,9 @@ GlslShaderGenerator::GlslShaderGenerator() :
 
     // <!-- <thin_film> -->
     registerImplementation("IM_thin_film_bsdf_" + GlslShaderGenerator::TARGET, NopNode::create);
+
+    // <!-- <surfacematerial> -->
+    registerImplementation("IM_surfacematerial_" + GlslShaderGenerator::TARGET, MaterialNode::create);
 
     _lightSamplingNodes.push_back(ShaderNode::create(nullptr, "numActiveLightSources", NumLightsNodeGlsl::create()));
     _lightSamplingNodes.push_back(ShaderNode::create(nullptr, "sampleLightSource", LightSamplerNodeGlsl::create()));
@@ -341,19 +348,37 @@ void GlslShaderGenerator::emitSpecularEnvironment(GenContext& context, ShaderSta
     int specularMethod = context.getOptions().hwSpecularEnvironmentMethod;
     if (specularMethod == SPECULAR_ENVIRONMENT_FIS)
     {
-        emitInclude("pbrlib/" + GlslShaderGenerator::TARGET + "/lib/mx_environment_fis.glsl", context, stage);
+        emitLibraryInclude("pbrlib/genglsl/lib/mx_environment_fis.glsl", context, stage);
     }
     else if (specularMethod == SPECULAR_ENVIRONMENT_PREFILTER)
     {
-        emitInclude("pbrlib/" + GlslShaderGenerator::TARGET + "/lib/mx_environment_prefilter.glsl", context, stage);
+        emitLibraryInclude("pbrlib/genglsl/lib/mx_environment_prefilter.glsl", context, stage);
     }
     else if (specularMethod == SPECULAR_ENVIRONMENT_NONE)
     {
-        emitInclude("pbrlib/" + GlslShaderGenerator::TARGET + "/lib/mx_environment_none.glsl", context, stage);
+        emitLibraryInclude("pbrlib/genglsl/lib/mx_environment_none.glsl", context, stage);
     }
     else
     {
         throw ExceptionShaderGenError("Invalid hardware specular environment method specified: '" + std::to_string(specularMethod) + "'");
+    }
+    emitLineBreak(stage);
+}
+
+void GlslShaderGenerator::emitTransmissionRender(GenContext& context, ShaderStage& stage) const
+{
+    int transmissionMethod = context.getOptions().hwTransmissionRenderMethod;
+    if (transmissionMethod == TRANSMISSION_REFRACTION)
+    {
+        emitLibraryInclude("pbrlib/genglsl/lib/mx_transmission_refract.glsl", context, stage);
+    }
+    else if (transmissionMethod == TRANSMISSION_OPACITY)
+    {
+        emitLibraryInclude("pbrlib/genglsl/lib/mx_transmission_opacity.glsl", context, stage);
+    }
+    else
+    {
+        throw ExceptionShaderGenError("Invalid transmission render specified: '" + std::to_string(transmissionMethod) + "'");
     }
     emitLineBreak(stage);
 }
@@ -476,15 +501,18 @@ HwResourceBindingContextPtr GlslShaderGenerator::getResourceBindingContext(GenCo
     return context.getUserData<HwResourceBindingContext>(HW::USER_DATA_BINDING_CONTEXT);
 }
 
-const string GlslShaderGenerator::getVertexDataPrefix(const VariableBlock& vertexData) const
+string GlslShaderGenerator::getVertexDataPrefix(const VariableBlock& vertexData) const
 {
     return vertexData.getInstance() + ".";
 }
 
 bool GlslShaderGenerator::requiresLighting(const ShaderGraph& graph) const
 {
-    return graph.hasClassification(ShaderNode::Classification::SHADER|ShaderNode::Classification::SURFACE) ||
-           graph.hasClassification(ShaderNode::Classification::BSDF);
+    const bool isBsdf = graph.hasClassification(ShaderNode::Classification::BSDF);
+    const bool isLitSurfaceShader = graph.hasClassification(ShaderNode::Classification::SHADER) &&
+                              graph.hasClassification(ShaderNode::Classification::SURFACE) &&
+                              !graph.hasClassification(ShaderNode::Classification::UNLIT);
+    return isBsdf || isLitSurfaceShader;
 }
 
 void GlslShaderGenerator::emitPixelStage(const ShaderGraph& graph, GenContext& context, ShaderStage& stage) const
@@ -516,7 +544,7 @@ void GlslShaderGenerator::emitPixelStage(const ShaderGraph& graph, GenContext& c
     emitOutputs(context, stage);
 
     // Add common math functions
-    emitInclude("stdlib/" + GlslShaderGenerator::TARGET + "/lib/mx_math.glsl", context, stage);
+    emitLibraryInclude("stdlib/genglsl/lib/mx_math.glsl", context, stage);
     emitLineBreak(stage);
 
     // Determine whether lighting is required
@@ -538,10 +566,11 @@ void GlslShaderGenerator::emitPixelStage(const ShaderGraph& graph, GenContext& c
             emitLine("#define " + HW::LIGHT_DATA_MAX_LIGHT_SOURCES + " " + std::to_string(maxLights), stage, false);
         }
         emitSpecularEnvironment(context, stage);
+        emitTransmissionRender(context, stage);
 
         if (context.getOptions().hwMaxActiveLightSources > 0)
         {
-          emitLightData(context, stage);
+            emitLightData(context, stage);
         }
     }
 
@@ -550,13 +579,13 @@ void GlslShaderGenerator::emitPixelStage(const ShaderGraph& graph, GenContext& c
                      context.getOptions().hwWriteDepthMoments;
     if (shadowing)
     {
-        emitInclude("pbrlib/" + GlslShaderGenerator::TARGET + "/lib/mx_shadow.glsl", context, stage);
+        emitLibraryInclude("pbrlib/genglsl/lib/mx_shadow.glsl", context, stage);
     }
 
     // Emit directional albedo table code.
     if (context.getOptions().hwWriteAlbedoTable)
     {
-        emitInclude("pbrlib/" + GlslShaderGenerator::TARGET + "/lib/mx_table.glsl", context, stage);
+        emitLibraryInclude("pbrlib/genglsl/lib/mx_table.glsl", context, stage);
         emitLineBreak(stage);
     }
 
@@ -564,17 +593,17 @@ void GlslShaderGenerator::emitPixelStage(const ShaderGraph& graph, GenContext& c
     // depending on the vertical flip flag.
     if (context.getOptions().fileTextureVerticalFlip)
     {
-        _tokenSubstitutions[ShaderGenerator::T_FILE_TRANSFORM_UV] = "stdlib/" + GlslShaderGenerator::TARGET + "/lib/mx_transform_uv_vflip.glsl";
+        _tokenSubstitutions[ShaderGenerator::T_FILE_TRANSFORM_UV] = "mx_transform_uv_vflip.glsl";
     }
     else
     {
-        _tokenSubstitutions[ShaderGenerator::T_FILE_TRANSFORM_UV] = "stdlib/" + GlslShaderGenerator::TARGET + "/lib/mx_transform_uv.glsl";
+        _tokenSubstitutions[ShaderGenerator::T_FILE_TRANSFORM_UV] = "mx_transform_uv.glsl";
     }
 
     // Emit uv transform code globally if needed.
     if (context.getOptions().hwAmbientOcclusion)
     {
-        emitInclude(ShaderGenerator::T_FILE_TRANSFORM_UV, context, stage);
+        emitLibraryInclude("stdlib/genglsl/lib/" + _tokenSubstitutions[ShaderGenerator::T_FILE_TRANSFORM_UV], context, stage);
     }
 
     emitLightFunctionDefinitions(graph, context, stage);
@@ -616,9 +645,21 @@ void GlslShaderGenerator::emitPixelStage(const ShaderGraph& graph, GenContext& c
             // closure/shader nodes and need to be emitted first.
             emitFunctionCalls(graph, context, stage, ShaderNode::Classification::TEXTURE);
 
-            // Emit function calls for all surface shader nodes.
-            // These will internally emit their closure function calls.
-            emitFunctionCalls(graph, context, stage, ShaderNode::Classification::SHADER | ShaderNode::Classification::SURFACE);
+            // Emit function calls for "root" closure/shader nodes.
+            // These will internally emit function calls for any dependent closure nodes upstream.
+            for (ShaderGraphOutputSocket* socket : graph.getOutputSockets())
+            {
+                if (socket->getConnection())
+                {
+                    const ShaderNode* upstream = socket->getConnection()->getNode();
+                    if (upstream->getParent() == &graph &&
+                        (upstream->hasClassification(ShaderNode::Classification::CLOSURE) || 
+                            upstream->hasClassification(ShaderNode::Classification::SHADER)))
+                    {
+                        emitFunctionCall(*upstream, context, stage);
+                    }
+                }
+            }
         }
         else
         {
@@ -814,8 +855,7 @@ ShaderNodeImplPtr GlslShaderGenerator::getImplementation(const NodeDef& nodedef,
         {
             impl = LightCompoundNodeGlsl::create();
         }
-        else if (outputType->getSemantic() == TypeDesc::SEMANTIC_CLOSURE ||
-                 outputType->getSemantic() == TypeDesc::SEMANTIC_SHADER)
+        else if (outputType->isClosure())
         {
             impl = ClosureCompoundNode::create();
         }
@@ -831,8 +871,7 @@ ShaderNodeImplPtr GlslShaderGenerator::getImplementation(const NodeDef& nodedef,
         if (!impl)
         {
             // Fall back to source code implementation.
-            if (outputType->getSemantic() == TypeDesc::SEMANTIC_CLOSURE ||
-                outputType->getSemantic() == TypeDesc::SEMANTIC_SHADER)
+            if (outputType->isClosure())
             {
                 impl = ClosureSourceCodeNode::create();
             }

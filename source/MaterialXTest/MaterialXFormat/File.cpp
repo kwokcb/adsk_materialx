@@ -35,8 +35,8 @@ TEST_CASE("File system operations", "[file]")
     mx::StringVec filenames =
     {
         "libraries/stdlib/stdlib_defs.mtlx",
-        "resources/Materials/Examples/Syntax/MaterialBasic.mtlx",
-        "resources/Materials/Examples/Syntax/PaintMaterials.mtlx",
+        "resources/Materials/Examples/StandardSurface/standard_surface_brass_tiled.mtlx",
+        "resources/Materials/Examples/StandardSurface/standard_surface_marble_solid.mtlx",
     };
 
     for (const std::string& filename : filenames)
@@ -57,13 +57,13 @@ TEST_CASE("File search path operations", "[file]")
 {
     mx::FileSearchPath searchPath = "libraries/stdlib" + 
                                     mx::PATH_LIST_SEPARATOR + 
-                                    "resources/Materials/Examples/Syntax";
+                                    "resources/Materials/Examples/StandardSurface";
 
     mx::FilePathVec filenames =
     {
         "stdlib_defs.mtlx",
-        "MaterialBasic.mtlx",
-        "PaintMaterials.mtlx",
+        "standard_surface_brass_tiled.mtlx",
+        "standard_surface_marble_solid.mtlx",
     };
 
     for (const mx::FilePath& filename : filenames)
@@ -108,11 +108,11 @@ TEST_CASE("Flatten filenames", "[file]")
     searchPath.append(rootPath);
 
     mx::flattenFilenames(doc1, searchPath);    
-    CHECK(nodeGraph->getFilePrefix() == mx::EMPTY_STRING);
+    REQUIRE(nodeGraph->getFilePrefix() == mx::EMPTY_STRING);
     resolvedPath = image1->getInputValue("file")->getValueString();
-    CHECK(resolvedPath.asString() == (rootPath / TEST_FILE_PREFIX_STRING / TEST_IMAGE_STRING1).asString());
+    REQUIRE(resolvedPath.asString() == (rootPath / TEST_FILE_PREFIX_STRING / TEST_IMAGE_STRING1).asString());
     resolvedPath = image2->getInputValue("file")->getValueString();
-    CHECK(resolvedPath.asString() == (rootPath / TEST_FILE_PREFIX_STRING / TEST_IMAGE_STRING2).asString());
+    REQUIRE(resolvedPath.asString() == (rootPath / TEST_FILE_PREFIX_STRING / TEST_IMAGE_STRING2).asString());
 
     // Reset document
     nodeGraph->setFilePrefix(TEST_FILE_PREFIX_STRING.asString() + "\\");
@@ -126,18 +126,38 @@ TEST_CASE("Flatten filenames", "[file]")
     separatorReplacer->setFilenameSubstitution("\\", "/");
 
     mx::flattenFilenames(doc1, searchPath, separatorReplacer);
-    CHECK(nodeGraph->getFilePrefix() == mx::EMPTY_STRING);
+    REQUIRE(nodeGraph->getFilePrefix() == mx::EMPTY_STRING);
     std::string resolvedPathString = image1->getInputValue("file")->getValueString();
-    CHECK(resolvedPathString == (rootPath / TEST_FILE_PREFIX_STRING / TEST_IMAGE_STRING1).asString(mx::FilePath::FormatPosix));
+    REQUIRE(resolvedPathString == (rootPath / TEST_FILE_PREFIX_STRING / TEST_IMAGE_STRING1).asString(mx::FilePath::FormatPosix));
     resolvedPathString = image2->getInputValue("file")->getValueString();
-    CHECK(resolvedPathString == (rootPath / TEST_FILE_PREFIX_STRING / TEST_IMAGE_STRING2).asString(mx::FilePath::FormatPosix));
+    REQUIRE(resolvedPathString == (rootPath / TEST_FILE_PREFIX_STRING / TEST_IMAGE_STRING2).asString(mx::FilePath::FormatPosix));
 
     // 4. Test with pre-resolved filenames
     nodeGraph->setFilePrefix(TEST_FILE_PREFIX_STRING.asString() + "\\");
     mx::flattenFilenames(doc1, searchPath, separatorReplacer);
-    CHECK(nodeGraph->getFilePrefix() == mx::EMPTY_STRING);
+    REQUIRE(nodeGraph->getFilePrefix() == mx::EMPTY_STRING);
     resolvedPathString = image1->getInputValue("file")->getValueString();
-    CHECK(resolvedPathString == (rootPath / TEST_FILE_PREFIX_STRING / TEST_IMAGE_STRING1).asString(mx::FilePath::FormatPosix));
+    REQUIRE(resolvedPathString == (rootPath / TEST_FILE_PREFIX_STRING / TEST_IMAGE_STRING1).asString(mx::FilePath::FormatPosix));
     resolvedPathString = image2->getInputValue("file")->getValueString();
-    CHECK(resolvedPathString == (rootPath / TEST_FILE_PREFIX_STRING / TEST_IMAGE_STRING2).asString(mx::FilePath::FormatPosix));
+    REQUIRE(resolvedPathString == (rootPath / TEST_FILE_PREFIX_STRING / TEST_IMAGE_STRING2).asString(mx::FilePath::FormatPosix));
+}
+
+TEST_CASE("Path normalization test", "[file]")
+{
+    const mx::FilePath REFERENCE_REL_PATH("a/b");
+    const mx::FilePath REFERENCE_ABS_PREFIX("/assets");
+
+    std::vector<mx::FilePath> examplePaths =
+    {
+        "a/./b",
+        "././a/b",
+        "c/../d/../a/b",
+        "a/b/./c/d/../.."
+    };
+
+    for (const mx::FilePath& path : examplePaths)
+    {
+        REQUIRE(path.getNormalized() == REFERENCE_REL_PATH);
+        REQUIRE((REFERENCE_ABS_PREFIX / path).getNormalized() == (REFERENCE_ABS_PREFIX / REFERENCE_REL_PATH));
+    }
 }

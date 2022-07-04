@@ -1,4 +1,4 @@
-#include "pbrlib/genglsl/lib/mx_microfacet_specular.glsl"
+#include "lib/mx_microfacet_specular.glsl"
 
 void mx_generalized_schlick_bsdf_reflection(vec3 L, vec3 V, vec3 P, float occlusion, float weight, vec3 color0, vec3 color90, float exponent, vec2 roughness, vec3 N, vec3 X, int distribution, int scatter_mode, inout BSDF bsdf)
 {
@@ -36,13 +36,6 @@ void mx_generalized_schlick_bsdf_reflection(vec3 L, vec3 V, vec3 P, float occlus
 
 void mx_generalized_schlick_bsdf_transmission(vec3 V, float weight, vec3 color0, vec3 color90, float exponent, vec2 roughness, vec3 N, vec3 X, int distribution, int scatter_mode, inout BSDF bsdf)
 {
-    if (scatter_mode == 1)
-    {
-        bsdf.response = color0 * weight;
-        bsdf.throughput = bsdf.response;
-        return;
-    }
-
     if (weight < M_FLOAT_EPS)
     {
         return;
@@ -56,12 +49,18 @@ void mx_generalized_schlick_bsdf_transmission(vec3 V, float weight, vec3 color0,
 
     vec2 safeAlpha = clamp(roughness, M_FLOAT_EPS, 1.0);
     float avgAlpha = mx_average_alpha(safeAlpha);
+
     vec3 comp = mx_ggx_energy_compensation(NdotV, avgAlpha, F);
     vec3 dirAlbedo = mx_ggx_dir_albedo(NdotV, avgAlpha, color0, color90) * comp;
     float avgDirAlbedo = dot(dirAlbedo, vec3(1.0 / 3.0));
     bsdf.throughput = vec3(1.0 - avgDirAlbedo * weight);
 
-    bsdf.response = (scatter_mode == 2) ? color0 * weight * bsdf.throughput : vec3(0.0);
+    if (scatter_mode != 0)
+    {
+        float avgF0 = dot(color0, vec3(1.0 / 3.0));
+        fd.ior = vec3(mx_f0_to_ior(avgF0));
+        bsdf.response = mx_surface_transmission(N, V, X, safeAlpha, distribution, fd) * color0 * weight;
+    }
 }
 
 void mx_generalized_schlick_bsdf_indirect(vec3 V, float weight, vec3 color0, vec3 color90, float exponent, vec2 roughness, vec3 N, vec3 X, int distribution, int scatter_mode, inout BSDF bsdf)

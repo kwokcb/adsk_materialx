@@ -27,7 +27,9 @@ OslRendererPtr OslRenderer::create(unsigned int width, unsigned int height, Imag
 
 OslRenderer::OslRenderer(unsigned int width, unsigned int height, Image::BaseType baseType) :
     ShaderRenderer(width, height, baseType),
-    _useTestRender(true) // By default use testrender
+    _useTestRender(true),
+    _raysPerPixelLit(1),
+    _raysPerPixelUnlit(1)
 {
 }
 
@@ -113,7 +115,6 @@ void OslRenderer::renderOSL(const FilePath& dirPath, const string& shaderName, c
     const string INPUT_SHADER_PARAMETER_OVERRIDES("%input_shader_parameter_overrides%");
     const string INPUT_SHADER_OUTPUT_STRING("%input_shader_output%");
     const string BACKGROUND_COLOR_STRING("%background_color%");
-    const string backgroundColor("0.3 0.3 0.32"); // TODO: Make this a user input
 
     StringMap replacementMap;
     replacementMap[OUTPUT_SHADER_TYPE_STRING] = outputShader;
@@ -132,7 +133,9 @@ void OslRenderer::renderOSL(const FilePath& dirPath, const string& shaderName, c
     replacementMap[INPUT_SHADER_PARAMETER_OVERRIDES] = overrideString;
     replacementMap[ENVIRONMENT_SHADER_PARAMETER_OVERRIDES] = envOverrideString;
     replacementMap[INPUT_SHADER_OUTPUT_STRING] = outputName;
-    replacementMap[BACKGROUND_COLOR_STRING] = backgroundColor;
+    replacementMap[BACKGROUND_COLOR_STRING] = std::to_string(DEFAULT_SCREEN_COLOR_LIN_REC709[0]) + " " +
+                                              std::to_string(DEFAULT_SCREEN_COLOR_LIN_REC709[1]) + " " +
+                                              std::to_string(DEFAULT_SCREEN_COLOR_LIN_REC709[2]);
     string sceneString = replaceSubstrings(sceneTemplateString, replacementMap);
     if ((sceneString == sceneTemplateString) || sceneTemplateString.empty())
     {
@@ -153,6 +156,7 @@ void OslRenderer::renderOSL(const FilePath& dirPath, const string& shaderName, c
     // Set oso file paths
     string osoPaths(_oslUtilityOSOPath);
     osoPaths += PATH_LIST_SEPARATOR + dirPath.asString();
+    osoPaths += PATH_LIST_SEPARATOR + dirPath.getParentPath().asString();
 
     // Build and run render command
     string command(_oslTestRenderExecutable);
@@ -160,10 +164,7 @@ void OslRenderer::renderOSL(const FilePath& dirPath, const string& shaderName, c
     command += " " + outputFileName;
     command += " -r " + std::to_string(_width) + " " + std::to_string(_height);
     command += " --path " + osoPaths;
-    if (isColorClosure)
-    {
-        command += " -aa 6"; // Increase rays per pixel for lit surfaces
-    }
+    command += " -aa " + std::to_string(isColorClosure ? _raysPerPixelLit : _raysPerPixelUnlit);
     command += " > " + errorFile + redirectString;
 
     // Repeat the render command to allow for sporadic errors.
@@ -239,7 +240,6 @@ void OslRenderer::shadeOSL(const FilePath& dirPath, const string& shaderName, co
     // modifies this then this hard-coded string must also be modified.
     // The formatted string is "Output <outputName> to <outputFileName>".
     std::ifstream errorStream(errorFile);
-    string result;
     StringVec results;
     string line;
     string successfulOutputSubString("Output " + outputName + " to " +

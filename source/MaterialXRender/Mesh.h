@@ -38,8 +38,9 @@ class MX_RENDER_API MeshStream
     static const string COLOR_ATTRIBUTE;
     static const string GEOMETRY_PROPERTY_ATTRIBUTE;
 
-    static const unsigned int STRIDE_3D = 3;
     static const unsigned int STRIDE_2D = 2;
+    static const unsigned int STRIDE_3D = 3;
+    static const unsigned int STRIDE_4D = 4;
     static const unsigned int DEFAULT_STRIDE = STRIDE_3D;
 
   public:
@@ -389,6 +390,12 @@ class MX_RENDER_API Mesh
     {
         return _partitions[partIndex];
     }
+
+    /// Create texture coordinates from the given positions.
+    /// The texture coordinates are all initialize to a zero value.
+    /// @param positionStream Input position stream
+    /// @return The generated texture coordinate stream
+    MeshStreamPtr generateTextureCoordinates(MeshStreamPtr positionStream);
 
     /// Generate face normals from the given positions.
     /// @param positionStream Input position stream

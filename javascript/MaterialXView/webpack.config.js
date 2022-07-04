@@ -5,10 +5,39 @@ const HtmlWebpackPlugin = require('html-webpack-plugin')
 
 const stdSurfaceMaterials = "../../resources/Materials/Examples/StandardSurface";
 const stdSurfaceMaterialsBaseURL = "Materials/Examples/StandardSurface";
-
-const materials = fs.readdirSync(stdSurfaceMaterials)
+let dirent = fs.readdirSync(stdSurfaceMaterials).filter(
+  function (file) { if (file.lastIndexOf(".mtlx") > -1) return file; }
+)
+let materials = dirent
   .map((fileName) => ({name: fileName, value: `${stdSurfaceMaterialsBaseURL}/${fileName}`}));
 
+const usdSurfaceMaterials = "../../resources/Materials/Examples/UsdPreviewSurface";
+const usdSurfaceMaterialsBaseURL = "Materials/Examples/UsdPreviewSurface";
+dirent = fs.readdirSync(usdSurfaceMaterials).filter(
+  function (file) { if (file.lastIndexOf(".mtlx") > -1) return file; }
+)
+let usdMaterials = dirent
+  .map((fileName) => ({name: fileName, value: `${usdSurfaceMaterialsBaseURL}/${fileName}`}));  
+
+const gltfSurfaceMaterials = "../../resources/Materials/Examples/GltfPbr";
+const gltfSurfaceMaterialsBaseURL = "Materials/Examples/GltfPbr";
+dirent = fs.readdirSync(gltfSurfaceMaterials).filter(
+  function (file) { if (file.lastIndexOf(".mtlx") > -1) return file; }
+)
+let gltfMaterials = dirent
+  .map((fileName) => ({name: fileName, value: `${gltfSurfaceMaterialsBaseURL}/${fileName}`}));
+
+materials = materials.concat( usdMaterials );
+materials = materials.concat( gltfMaterials );
+
+const geometryFiles = "../../resources/Geometry";
+const geometryFilesURL = "Geometry";
+dirent = fs.readdirSync(geometryFiles).filter(
+  function (file) { if (file.lastIndexOf(".glb") > -1) return file; }
+)
+let geometry = dirent
+  .map((fileName) => ({name: fileName, value: `${geometryFilesURL}/${fileName}`}));
+  
 module.exports = {
   entry: './source/index.js',
   output: {
@@ -19,7 +48,8 @@ module.exports = {
   plugins: [
     new HtmlWebpackPlugin({
       templateParameters: {
-        materials
+        materials,
+        geometry
       },
       template: 'index.ejs'
     }),
@@ -27,16 +57,20 @@ module.exports = {
       patterns: [
         { 
           context: "../../resources/Images",
-          from: "*.jpg", 
+          from: "*.*", 
           to: "Images",
         },
+        { 
+          context: "../../resources/Geometry/",
+          from: "*.glb", 
+          to: "Geometry",
+        },
         { from: "./public", to: 'public' },
-        { from: "../../resources/Images/greysphere_calibration.png", to: "Images" },
-        { from: "../../resources/Geometry/shaderball.glb",  to: "Geometry"},
-        { from: "../../resources/Lights/san_giuseppe_bridge_split.hdr", to: "Lights" },
-        { from: "../../resources/Lights/san_giuseppe_bridge_split.mtlx", to: "Lights" },
-        { from: "../../resources/Lights/irradiance/san_giuseppe_bridge_split.hdr", to: "Lights/irradiance" },
+        { context: "../../resources/Lights", from: "*.*", to: "Lights" },
+        { context: "../../resources/Lights/irradiance", from: "*.*", to: "Lights/irradiance" },
         { from: stdSurfaceMaterials, to: stdSurfaceMaterialsBaseURL },
+        { from: usdSurfaceMaterials, to: usdSurfaceMaterialsBaseURL },
+        { from: gltfSurfaceMaterials, to: gltfSurfaceMaterialsBaseURL },
         { from: "../build/bin/JsMaterialXGenShader.wasm" },
         { from: "../build/bin/JsMaterialXGenShader.js" },
         { from: "../build/bin/JsMaterialXGenShader.data" },

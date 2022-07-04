@@ -57,7 +57,7 @@ class GlslShaderRenderTester : public RenderUtil::ShaderRenderTester
     }
 
     void runBake(mx::DocumentPtr doc, const mx::FileSearchPath& imageSearchPath, const mx::FilePath& outputFilename,
-                 unsigned int bakeWidth, unsigned int bakeHeight, bool bakeHdr, std::ostream& log) override;
+                 const GenShaderUtil::TestSuiteOptions::BakeSetting& bakeOptions, std::ostream& log) override;
 
     mx::GlslRendererPtr _renderer;
     mx::LightHandlerPtr _lightHandler;
@@ -97,9 +97,13 @@ void GlslShaderRenderTester::registerLights(mx::DocumentPtr document,
     mx::ImagePtr envIrradiance = _renderer->getImageHandler()->acquireImage(options.irradianceIBLPath);
     REQUIRE(envRadiance);
     REQUIRE(envIrradiance);
+
+    // Apply light settings for render tests.
     _lightHandler->setEnvRadianceMap(envRadiance);
     _lightHandler->setEnvIrradianceMap(envIrradiance);
-    _lightHandler->setEnvSamples(256);
+    _lightHandler->setEnvSampleCount(1024);
+    _lightHandler->setRefractionEnv(false);
+    _lightHandler->setRefractionColor(_renderer->getScreenColor());
 }
 
 //
@@ -433,7 +437,6 @@ bool GlslShaderRenderTester::runRenderer(const std::string& shaderName,
                 mx::GenOptions& contextOptions = context.getOptions();
                 contextOptions = options;
                 contextOptions.targetColorSpaceOverride = "lin_rec709";
-                contextOptions.hwSpecularEnvironmentMethod = testOptions.specularEnvironmentMethod;
                 shader = shadergen.generate(shaderName, element, context);
                 generationTimer.endTimer();
             }
@@ -632,20 +635,22 @@ bool GlslShaderRenderTester::runRenderer(const std::string& shaderName,
 }
 
 void GlslShaderRenderTester::runBake(mx::DocumentPtr doc, const mx::FileSearchPath& imageSearchPath, const mx::FilePath& outputFileName,
-                                      unsigned int bakeWidth, unsigned int bakeHeight, bool bakeHdr, std::ostream& log)
+                                     const GenShaderUtil::TestSuiteOptions::BakeSetting& bakeOptions, std::ostream& log)
 {
     mx::ImageVec imageVec = _renderer->getImageHandler()->getReferencedImages(doc);
     auto maxImageSize = mx::getMaxDimensions(imageVec);
-    bakeWidth = std::max(bakeWidth, maxImageSize.first);
-    bakeHeight = std::max(bakeHeight, maxImageSize.second);
+    const unsigned bakeWidth = std::max(bakeOptions.resolution, maxImageSize.first);
+    const unsigned bakeHeight = std::max(bakeOptions.resolution, maxImageSize.second);
 
-    mx::Image::BaseType baseType = bakeHdr ? mx::Image::BaseType::FLOAT : mx::Image::BaseType::UINT8;
+    mx::Image::BaseType baseType = bakeOptions.hdr ? mx::Image::BaseType::FLOAT : mx::Image::BaseType::UINT8;
     mx::TextureBakerPtr baker = mx::TextureBaker::create(bakeWidth, bakeHeight, baseType);
     baker->setupUnitSystem(doc);
     baker->setImageHandler(_renderer->getImageHandler());
     baker->setOptimizeConstants(true);
     baker->setHashImageNames(true);
-    
+    baker->setTextureSpaceMin(bakeOptions.uvmin);
+    baker->setTextureSpaceMax(bakeOptions.uvmax);
+
     try
     {
         baker->setOutputStream(&log);

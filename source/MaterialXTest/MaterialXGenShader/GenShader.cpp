@@ -58,8 +58,8 @@ TEST_CASE("GenShader: Valid Libraries", "[genshader]")
     mx::DocumentPtr doc = mx::createDocument();
 
     mx::FileSearchPath searchPath;
-    searchPath.append(mx::FilePath::getCurrentPath() / mx::FilePath("libraries"));
-    loadLibraries({ "targets", "stdlib", "pbrlib" }, searchPath, doc);
+    searchPath.append(mx::FilePath::getCurrentPath());
+    loadLibraries({ "libraries/targets", "libraries/stdlib", "libraries/pbrlib" }, searchPath, doc);
 
     std::string validationErrors;
     bool valid = doc->validate(&validationErrors);
@@ -104,15 +104,15 @@ TEST_CASE("GenShader: TypeDesc Check", "[genshader]")
     REQUIRE(mx::TypeDesc::get("bar") == nullptr);
 }
 
-TEST_CASE("GenShader: Graph + Nodedf Translation Check", "[genshader]")
+TEST_CASE("GenShader: Graph + Nodedf Transparent Check", "[genshader]")
 {
     mx::FileSearchPath searchPath;
     const mx::FilePath currentPath = mx::FilePath::getCurrentPath();
-    searchPath.append(currentPath / mx::FilePath("libraries"));
+    searchPath.append(currentPath);
     searchPath.append(currentPath / mx::FilePath("resources/Materials/TestSuite"));
 
     mx::DocumentPtr doc = mx::createDocument();
-    loadLibraries({ "targets", "stdlib", "pbrlib", "bxdf",  }, searchPath, doc);
+    loadLibraries({ "libraries/targets", "libraries/stdlib", "libraries/pbrlib", "libraries/bxdf" }, searchPath, doc);
     mx::FilePath testPath = mx::FilePath::getCurrentPath() / mx::FilePath("resources/Materials/TestSuite/pbrlib/surfaceshader/transparency_test.mtlx");
     mx::readFromXmlFile(doc, testPath, searchPath);
 
@@ -165,10 +165,45 @@ TEST_CASE("GenShader: Graph + Nodedf Translation Check", "[genshader]")
     mx::writeToXmlFile(doc, "transparency_test_nodedefs.mtlx");
 }
 
-TEST_CASE("GenShader: Transparency Regression Check", "[genshader]")
+TEST_CASE("GenShader: Shader Translation", "[translate]")
 {
     const mx::FilePath currentPath = mx::FilePath::getCurrentPath();
+    mx::FileSearchPath searchPath(currentPath);
+    mx::ShaderTranslatorPtr shaderTranslator = mx::ShaderTranslator::create();
+
+    mx::FilePath testPath = currentPath / mx::FilePath("resources/Materials/Examples/StandardSurface");
+    for (mx::FilePath& mtlxFile : testPath.getFilesInDirectory(mx::MTLX_EXTENSION))
+    {
+        mx::DocumentPtr doc = mx::createDocument();
+        loadLibraries({ "libraries/targets", "libraries/stdlib", "libraries/pbrlib", "libraries/bxdf" }, searchPath, doc);
+
+        mx::readFromXmlFile(doc, testPath / mtlxFile, searchPath);
+        mtlxFile.removeExtension();
+
+        try
+        {
+            shaderTranslator->translateAllMaterials(doc, "UsdPreviewSurface");
+        }
+        catch (mx::Exception &e)
+        {
+            std::cout << "Failed translating: " << (testPath / mtlxFile).asString() << ": " << e.what() << std::endl;
+        }
+
+        std::string validationErrors;
+        bool valid = doc->validate(&validationErrors);
+        if (!doc->validate(&validationErrors))
+        {
+            std::cout << "Shader translation of " << (testPath / mtlxFile).asString() << " failed" << std::endl;
+            std::cout << "Validation errors: " << validationErrors << std::endl;
+        }
+        REQUIRE(valid);
+    }
+}
+
+TEST_CASE("GenShader: Transparency Regression Check", "[genshader]")
+{
     mx::DocumentPtr libraries = mx::createDocument();
+    mx::FilePath currentPath = mx::FilePath::getCurrentPath();
     mx::FileSearchPath searchPath(currentPath);
     mx::loadLibraries({ "libraries" }, searchPath, libraries);
 
@@ -201,12 +236,6 @@ TEST_CASE("GenShader: Transparency Regression Check", "[genshader]")
                 if (!node)
                 {
                     continue;
-                }
-                if (node->getCategory() == mx::SURFACE_MATERIAL_NODE_STRING)
-                {
-                    std::vector<mx::NodePtr> shaderNodes = mx::getShaderNodes(node);
-                    if (!shaderNodes.empty())
-                        node = shaderNodes[0];
                 }
                 if (testValue != mx::isTransparentSurface(node))
                 {
@@ -263,9 +292,9 @@ void testDeterministicGeneration(mx::DocumentPtr libraries, mx::GenContext& cont
 
 TEST_CASE("GenShader: Deterministic Generation", "[genshader]")
 {
-    const mx::FileSearchPath searchPath(mx::FilePath::getCurrentPath() / mx::FilePath("libraries"));
     mx::DocumentPtr libraries = mx::createDocument();
-    mx::loadLibraries({ "targets", "stdlib", "pbrlib", "bxdf" }, searchPath, libraries);
+    mx::FileSearchPath searchPath(mx::FilePath::getCurrentPath());
+    mx::loadLibraries({ "libraries/targets", "libraries/stdlib", "libraries/pbrlib", "libraries/bxdf" }, searchPath, libraries);
 
 #ifdef MATERIALX_BUILD_GEN_GLSL
     {
