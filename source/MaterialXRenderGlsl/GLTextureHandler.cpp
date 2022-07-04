@@ -72,7 +72,7 @@ bool GLTextureHandler::bindImage(ImagePtr image, const ImageSamplingProperties& 
     glTexParameteri(targetType, GL_TEXTURE_WRAP_T, vaddressMode);
     glTexParameteri(targetType, GL_TEXTURE_MIN_FILTER, minFilterType);
     glTexParameteri(targetType, GL_TEXTURE_MAG_FILTER, magFilterType);
-    glTexParameterf(targetType, GL_TEXTURE_MAX_ANISOTROPY_EXT, 16.0f);
+    glTexParameterf(targetType, GL_TEXTURE_MAX_ANISOTROPY, 16.0f);
 
     return true;
 }

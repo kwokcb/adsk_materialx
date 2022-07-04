@@ -8,12 +8,6 @@ add_library(MaterialXGenShader ${materialx_source} ${materialx_headers})
 
 add_definitions(-DMATERIALX_GENSHADER_EXPORTS)
 
-target_link_libraries(
-    MaterialXGenShader
-    MaterialXCore
-    MaterialXFormat
-    ${CMAKE_DL_LIBS})
-
 set_target_properties(
     MaterialXGenShader PROPERTIES
     OUTPUT_NAME MaterialXGenShader${MATERIALX_LIBNAME_SUFFIX}
