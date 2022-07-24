@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<materialx version="1.38" xmlns:xi="http://www.w3.org/2001/XInclude">
+  <xi:include href="standard_surface_materialx_logo.mtlx" />
+  <look name="Logo_split_look" >
+    <materialassign name="materialassign1" geom="blue, material_text" material="blue_material" />
+    <materialassign name="materialassign2" geom="pink, x_text" material="pink_material" />
+  </look>
+</materialx>
+

@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<materialx version="1.38" xmlns:xi="http://www.w3.org/2001/XInclude">
+  <xi:include href="standard_surface_materialx_logo.mtlx" />
+  <look name="Logo_one_look" >
+    <materialassign name="materialassign1" material="pink_material" geom="materialx_text/x_text, materialx_logo/pink, materialx_logo/pink1, materialx_logo/pink_triangles/triangle, materialx_logo/pink_triangles/triangle1, materialx_logo/pink_triangles/triangle2, materialx_logo/pink_triangles/triangle3, materialx_logo/pink_triangles/triangle4, materialx_logo/pink_triangles/triangle5, materialx_logo/pink_triangles/triangle7, materialx_logo/pink_triangles/triangle8" />
+    <materialassign name="materialassign2" material="blue_material" geom="materialx_text/material_text, materialx_logo/blue, materialx_logo/blue1, materialx_logo/blue2" />
+  </look>
+</materialx>
+
