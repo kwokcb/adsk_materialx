@@ -47,8 +47,6 @@
     <input name="emission_color" type="color3" value="1, 1, 1" />
     <input name="opacity" type="color3" value="1, 1, 1" />
     <input name="thin_walled" type="boolean" value="false" />
-    <input name="normal" type="vector3" />
-    <input name="tangent" type="vector3" />
   </standard_surface>
   <standard_surface name="blue_shader" type="surfaceshader" version="1.0.1" >
     <input name="base_color" type="color3" value="0, 0.210874, 0.252647" />
@@ -91,7 +89,5 @@
     <input name="emission_color" type="color3" value="1, 1, 1" />
     <input name="opacity" type="color3" value="0.8, 0.8, 0.8" />
     <input name="thin_walled" type="boolean" value="false" />
-    <input name="normal" type="vector3" />
-    <input name="tangent" type="vector3" />
   </standard_surface>
 </materialx>
