@@ -41,6 +41,7 @@ option(MATERIALX_BUILD_GEN_GLSL "Build the GLSL shader generator back-end." ON)
 option(MATERIALX_BUILD_GEN_OSL "Build the OSL shader generator back-end." ON)
 option(MATERIALX_BUILD_GEN_MDL "Build the MDL shader generator back-end." ON)
 option(MATERIALX_BUILD_RENDER "Build the MaterialX Render modules." ON)
+option(MATERIALX_BUILD_GLTF "Build the MaterialX GLTF modules." ON)
 option(MATERIALX_BUILD_OIIO "Build OpenImageIO support for MaterialXRender." OFF)
 option(MATERIALX_BUILD_TESTS "Build unit tests." ON)
 
@@ -104,6 +105,7 @@ mark_as_advanced(MATERIALX_BUILD_GEN_GLSL)
 mark_as_advanced(MATERIALX_BUILD_GEN_OSL)
 mark_as_advanced(MATERIALX_BUILD_GEN_MDL)
 mark_as_advanced(MATERIALX_BUILD_RENDER)
+mark_as_advanced(MATERIALX_BUILD_GLTF)
 mark_as_advanced(MATERIALX_BUILD_OIIO)
 mark_as_advanced(MATERIALX_BUILD_TESTS)
 mark_as_advanced(MATERIALX_BUILD_SHARED_LIBS)
@@ -205,6 +207,7 @@ endfunction(assign_source_group)
 # Propagate shared library setting to NanoGUI:
 if(MATERIALX_BUILD_SHARED_LIBS)
     set(BUILD_SHARED_LIBS "ON")
+    set(MATERIALX_BUILD_GLTF "OFF")
 else()
     set(BUILD_SHARED_LIBS "OFF")
 endif()
@@ -229,6 +232,12 @@ if(MATERIALX_BUILD_GEN_GLSL OR MATERIALX_BUILD_GEN_OSL OR MATERIALX_BUILD_GEN_MD
         add_subdirectory(source/MaterialXGenMdl)
     endif()
     add_subdirectory(libraries)
+endif()
+
+# Add GLTF subdirectory
+if(MATERIALX_BUILD_GLTF)
+    add_definitions(-DMATERIALX_BUILD_GLTF)
+    add_subdirectory(source/MaterialXglTF)
 endif()
 
 # Add rendering and viewer subdirectories
