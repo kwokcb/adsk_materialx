@@ -24,7 +24,7 @@ class MX_GLTF_API MaterialLoader
 {
   public:
     MaterialLoader() 
-        : _generateFullDefinitions(true)
+        : _generateFullDefinitions(false)
         , _generateAssignments(false)
       {}
 

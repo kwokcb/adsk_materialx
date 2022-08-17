@@ -1314,7 +1314,7 @@ void CgltfMaterialLoader::loadMaterials(void *vdata)
         NodePtr baseColorNode = baseColorInput ? baseColorInput->getConnectedNode() : nullptr;
         if (baseColorNode)
         {
-            InputPtr geomcolorInput = baseColorNode->getInput("geomcolor");
+            InputPtr geomcolorInput = baseColorNode->addInputFromNodeDef("geomcolor");
             if (geomcolorInput)
             {
                 NodePtr geomcolor = _materials->addNode("geomcolor", EMPTY_STRING, "color4");
