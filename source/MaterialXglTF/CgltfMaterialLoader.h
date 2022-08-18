@@ -30,7 +30,7 @@ class MX_GLTF_API MaterialLoader
 
     virtual ~MaterialLoader() = default;
 
-    /// Load materialsfrom a given file
+    /// Load materials from a given file
     virtual bool load(const FilePath& filePath) = 0;
 
     /// Save materials to a given file
