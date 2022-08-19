@@ -705,11 +705,16 @@ NodePtr CgltfMaterialLoader::createColoredTexture(DocumentPtr& doc, const std::s
 
 
 NodePtr CgltfMaterialLoader::createTexture(DocumentPtr& doc, const std::string & nodeName, const std::string& fileName,
-                                           const std::string & textureType, const std::string & colorspace)
+                                           const std::string& textureType, const std::string & colorspace, 
+                                           const std::string& nodeType)
 {
     std::string newTextureName = doc->createValidChildName(nodeName);
-    NodePtr newTexture = doc->addNode("tiledimage", newTextureName, textureType);
-    newTexture->setAttribute(InterfaceElement::NODE_DEF_ATTRIBUTE, "ND_image_" + textureType);
+    NodePtr newTexture = doc->addNode(nodeType, newTextureName, textureType);
+    if (!newTexture)
+    {
+        return nullptr;
+    }
+    //newTexture->setAttribute(InterfaceElement::NODE_DEF_ATTRIBUTE, "ND_image_" + textureType);
     if (_generateFullDefinitions)
     {
         newTexture->addInputsFromNodeDef();
@@ -723,6 +728,104 @@ NodePtr CgltfMaterialLoader::createTexture(DocumentPtr& doc, const std::string &
     return newTexture;
 }
 
+void setImageProperties(NodePtr image, const cgltf_texture_view* textureView)
+{
+    cgltf_texture* texture = textureView ? textureView->texture : nullptr;
+    if (!texture)
+    {
+        return;
+    }
+
+    // Handle transform
+    if (textureView->has_transform)
+    {
+        const cgltf_texture_transform& transform = textureView->transform;
+        InputPtr offsetInput = image->addInputFromNodeDef("offset");
+        if (offsetInput)
+        {
+            // Note: Pivot is 0,1 in glTF and 0,0 in MaterialX
+            // This is handled in the MaterialX implemenation
+            // where the pivot is 0,1 and X offset are negative from there.
+            offsetInput->setValueString(std::to_string(transform.offset[0]) + "," +
+                std::to_string(transform.offset[1]));
+        }
+        InputPtr rotationInput = image->addInputFromNodeDef("rotate");
+        if (rotationInput)
+        {
+            // Note: Rotation in glTF and MaterialX are opposite directions
+            // This is handled in the MaterialX implementation
+            rotationInput->setValue<float>(TO_DEGREE * transform.rotation);
+        }
+        InputPtr scaleInput = image->addInputFromNodeDef("scale");
+        if (scaleInput)
+        {
+            // Scale is inverted between glTF and MaterialX.
+            // This is handled in the MaterialX implementation
+            scaleInput->setValueString(std::to_string(transform.scale[0]) + "," +
+                std::to_string(transform.scale[1]));
+        }
+
+        // Handle uvset index
+        if (transform.has_texcoord)
+        {
+            InputPtr uvIndexInput = image->addInputFromNodeDef("uvindex");
+            if (uvIndexInput)
+            {
+                uvIndexInput->setValue<int>(transform.texcoord);
+            }
+        }
+
+        // Handle sampler. Magic numbers based upon:
+        // https://github.com/KhronosGroup/glTF/blob/main/specification/2.0/schema/sampler.schema.json
+        cgltf_sampler* sampler = texture->sampler;
+        if (sampler)
+        {
+            std::unordered_map<int, string> wrapMap;
+            wrapMap[33071] = "clamp";
+            wrapMap[33648] = "mirror";
+            wrapMap[10497] = "periodic";
+
+            if (wrapMap.count(sampler->wrap_s))
+            {
+                string uaddress = wrapMap[sampler->wrap_s];
+                InputPtr addressInput = image->addInputFromNodeDef("uaddressmode");
+                if (addressInput)
+                {
+                    addressInput->setValueString(uaddress);
+                }
+            }
+            if (wrapMap.count(sampler->wrap_t))
+            {
+                string vaddress = wrapMap[sampler->wrap_s];
+                InputPtr addressInput = image->addInputFromNodeDef("vaddressmode");
+                if (addressInput)
+                {
+                    addressInput->setValueString(vaddress);
+                }
+            }
+
+            // Filter. There is only one filter type so set based on the
+            // mag filter.
+            std::unordered_map<int, string> filterMap;
+            filterMap[9728] = "closest";
+            filterMap[9729] = "linear";
+            filterMap[9984] = "cubic";
+            filterMap[9985] = "closest";
+            filterMap[9986] = "linear";
+            filterMap[9987] = "cubic";
+
+            if (filterMap.count(sampler->mag_filter))
+            {
+                string filterString = filterMap[sampler->mag_filter];
+                InputPtr filterInput = image->addInputFromNodeDef("filtertype");
+                if (filterInput)
+                {
+                    filterInput->setValueString(filterString);
+                }
+            }
+        }
+    }
+}
 
 void CgltfMaterialLoader::setNormalMapInput(DocumentPtr materials, NodePtr shaderNode, const std::string& inputName,
     const void* textureViewIn, const std::string& inputImageNodeName)
@@ -739,24 +842,16 @@ void CgltfMaterialLoader::setNormalMapInput(DocumentPtr materials, NodePtr shade
                 inputImageNodeName;
             imageNodeName = _materials->createValidChildName(imageNodeName);
             std::string uri = texture->image->uri ? texture->image->uri : SPACE_STRING;
+            // Note: we create a gltf_normalmap here
             NodePtr newTexture = createTexture(_materials, imageNodeName, uri,
-                "vector3", EMPTY_STRING);
-
-            std::string normalMapName = _materials->createValidChildName("pbr_normalmap");
-            NodePtr normalMap = _materials->addNode("normalmap", normalMapName, "vector3");
-            normalMap->setAttribute(InterfaceElement::NODE_DEF_ATTRIBUTE, "ND_normalmap");
-            if (_generateFullDefinitions)
+                                               "vector3", EMPTY_STRING, "gltf_normalmap");
+            if (newTexture)
             {
-                normalMap->addInputsFromNodeDef();
-            }
-            else
-            {
-                normalMap->addInputFromNodeDef(IN_STRING);
-            }
-            normalMap->getInput(IN_STRING)->setAttribute(PortElement::NODE_NAME_ATTRIBUTE, newTexture->getName());
-            normalMap->getInput(IN_STRING)->setType("vector3");
+                setImageProperties(newTexture, textureView);
 
-            normalInput->setAttribute(PortElement::NODE_NAME_ATTRIBUTE, normalMap->getName());
+                normalInput->setAttribute(PortElement::NODE_NAME_ATTRIBUTE, newTexture->getName());
+                normalInput->removeAttribute(AttributeDef::VALUE_ATTRIBUTE);               
+            }
         }
     }
 }
@@ -787,6 +882,10 @@ void CgltfMaterialLoader::setColorInput(DocumentPtr materials, NodePtr shaderNod
             imageNodeName = materials->createValidChildName(imageNodeName);
             std::string uri = texture->image->uri ? texture->image->uri : SPACE_STRING;
             NodePtr newTexture = createTexture(materials, imageNodeName, uri, "color3", "srgb_texture");
+            if (newTexture)
+            {
+                setImageProperties(newTexture, textureView);
+            }
             colorInput->setAttribute(PortElement::NODE_NAME_ATTRIBUTE, newTexture->getName());
             colorInput->removeAttribute(AttributeDef::VALUE_ATTRIBUTE);
         }
@@ -802,39 +901,7 @@ void CgltfMaterialLoader::setColorInput(DocumentPtr materials, NodePtr shaderNod
             NodePtr newTexture = createColoredTexture(materials, imageNodeName, uri, color4, "srgb_texture");
             if (newTexture)
             {
-                // Handle transform
-                if (textureView->has_transform)
-                {
-                    const cgltf_texture_transform& transform = textureView->transform;
-                    InputPtr offsetInput = newTexture->addInputFromNodeDef("offset");
-                    if (offsetInput)
-                    {
-                        // Note: Pivot is 0,1 in glTF and 0,0 in MaterialX
-                        // This is handled in the MaterialX implemenation
-                        // where the pivot is 0,1 and X offset are negative from there.
-                        offsetInput->setValueString(std::to_string(transform.offset[0]) + "," +
-                                                    std::to_string(transform.offset[1]));
-                    }
-                    InputPtr rotationInput = newTexture->addInputFromNodeDef("rotate");
-                    if (rotationInput)
-                    {
-                        // Note: Rotation in glTF and MaterialX are opposite directions
-                        // This is handled in the MaterialX implementation
-                        rotationInput->setValue<float>(TO_DEGREE * transform.rotation);
-                    }
-                    InputPtr scaleInput = newTexture->addInputFromNodeDef("scale");
-                    if (scaleInput)
-                    {
-                        // Scale is inverted between glTF and MaterialX.
-                        // This is handled in the MaterialX implementation
-                        scaleInput->setValueString(std::to_string(transform.scale[0]) + "," +
-                                                   std::to_string(transform.scale[1]));
-                    }
-                    if (transform.has_texcoord)
-                    {
-                        //transform.texcoord;
-                    }
-                }
+                setImageProperties(newTexture, textureView);
 
                 const string& newTextureName = newTexture->getName();
                 colorInput->setAttribute(PortElement::NODE_NAME_ATTRIBUTE, newTextureName);
@@ -878,7 +945,11 @@ void CgltfMaterialLoader::setFloatInput(DocumentPtr materials, NodePtr shaderNod
             std::string imageNodeName = materials->createValidChildName(inputImageNodeName);
             std::string uri = texture->image->uri ? texture->image->uri : SPACE_STRING;
             NodePtr newTexture = createTexture(materials, imageNodeName, uri,
-                FLOAT_STRING, EMPTY_STRING);
+                                               FLOAT_STRING, EMPTY_STRING);
+            if (newTexture)
+            {
+                setImageProperties(newTexture, textureView);
+            }
             floatInput->setAttribute(PortElement::NODE_NAME_ATTRIBUTE, newTexture->getName());
             floatInput->setValue<float>(floatFactor);
         }
@@ -1052,7 +1123,11 @@ void CgltfMaterialLoader::loadMaterials(void *vdata)
                 imageNodeName = _materials->createValidChildName(imageNodeName);
                 std::string uri = texture->image->uri ? texture->image->uri : SPACE_STRING;
                 NodePtr textureNode = createTexture(_materials, imageNodeName, uri,
-                    "vector3", EMPTY_STRING);
+                                                    "vector3", EMPTY_STRING);
+                if (textureNode)
+                {
+                    setImageProperties(textureNode, &textureView);
+                }
 
                 // Map image channesl to inputs
                 StringVec indexName = { "x", "y", "z" };
@@ -1122,6 +1197,10 @@ void CgltfMaterialLoader::loadMaterials(void *vdata)
                 std::string uri = texture->image->uri ? texture->image->uri : SPACE_STRING;
                 NodePtr textureNode = createTexture(_materials, imageNodeName, uri,
                     "color4", "srgb_texture");
+                if (textureNode)
+                {
+                    setImageProperties(textureNode, &textureView);
+                }
 
                 StringVec channels = { "rgb", "a" };
                 StringVec types = { "color3", FLOAT_STRING };
@@ -1382,7 +1461,5 @@ void CgltfMaterialLoader::loadMaterials(void *vdata)
         }
     }
 }
-
-
 
 MATERIALX_NAMESPACE_END

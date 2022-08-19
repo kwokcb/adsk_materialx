@@ -159,7 +159,8 @@ class MX_GLTF_API CgltfMaterialLoader : public MaterialLoader
     NodePtr createColoredTexture(DocumentPtr& doc, const std::string & nodeName, const std::string& fileName,
                                  const Color4& color, const std::string & colorspace);
     NodePtr createTexture(DocumentPtr& doc, const std::string & nodeName, const std::string& fileName,
-                          const std::string & textureType, const std::string & colorspace);
+                          const std::string & textureType, const std::string & colorspace, 
+                          const std::string& nodeType = "gltf_image");
     void    setColorInput(DocumentPtr materials, NodePtr shaderNode, const std::string& inputName, 
                           const Color3& color, float alpha, const std::string& alphaInputName, 
                           const void* textureView, const std::string& inputImageNodeName);
