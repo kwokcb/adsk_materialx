@@ -45,6 +45,8 @@ MATERIALX_NAMESPACE_BEGIN
 
 namespace
 {
+const float TO_DEGREE = 180.0f / 3.1415926535f;
+const float TO_RADIAN = 3.1415926535f / 180.0f;
 const std::string SPACE_STRING = " ";
 const std::string IN_STRING = "in";
 const std::string FLOAT_STRING = "float";
@@ -807,19 +809,26 @@ void CgltfMaterialLoader::setColorInput(DocumentPtr materials, NodePtr shaderNod
                     InputPtr offsetInput = newTexture->addInputFromNodeDef("offset");
                     if (offsetInput)
                     {
+                        // Note: Pivot is 0,1 in glTF and 0,0 in MaterialX
+                        // This is handled in the MaterialX implemenation
+                        // where the pivot is 0,1 and X offset are negative from there.
                         offsetInput->setValueString(std::to_string(transform.offset[0]) + "," +
                                                     std::to_string(transform.offset[1]));
                     }
                     InputPtr rotationInput = newTexture->addInputFromNodeDef("rotate");
                     if (rotationInput)
                     {
-                        rotationInput->setValue<float>(transform.rotation);
+                        // Note: Rotation in glTF and MaterialX are opposite directions
+                        // This is handled in the MaterialX implementation
+                        rotationInput->setValue<float>(TO_DEGREE * transform.rotation);
                     }
                     InputPtr scaleInput = newTexture->addInputFromNodeDef("scale");
                     if (scaleInput)
                     {
+                        // Scale is inverted between glTF and MaterialX.
+                        // This is handled in the MaterialX implementation
                         scaleInput->setValueString(std::to_string(transform.scale[0]) + "," +
-                                                    std::to_string(transform.scale[1]));
+                                                   std::to_string(transform.scale[1]));
                     }
                     if (transform.has_texcoord)
                     {

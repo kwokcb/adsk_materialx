@@ -275,7 +275,7 @@
     <input name="file" type="filename" uniform="true" value="" uifolder="Image" />
     <input name="default" type="color4" value="0, 0, 0, 0" uifolder="Image" />
     <input name="uvindex" type="integer" value="0" uifolder="Image" />	  
-    <input name="pivot" type="vector2" value="0, 0" uifolder="Image" />
+    <input name="pivot" type="vector2" value="0, 1" uifolder="Image" />
     <input name="scale" type="vector2" value="1, 1" uifolder="Image" />
     <input name="rotate" type="float" value="0" unit="degree" unittype="angle" uimin="0" uimax="360" uifolder="Image" />
     <input name="offset" type="vector2" value="0, 0" uifolder="Image" />
@@ -293,7 +293,7 @@
     <input name="file" type="filename" uniform="true" value="" />
     <input name="default" type="color4" value="0, 0, 0, 0" />
     <input name="uvindex" type="integer" value="0" />
-    <input name="pivot" type="vector2" value="0, 0" />
+    <input name="pivot" type="vector2" value="0, 1" />
     <input name="scale" type="vector2" value="1, 1" />
     <input name="rotate" type="float" value="0" />
     <input name="offset" type="vector2" value="0, 0" />
@@ -310,7 +310,7 @@
       <input name="file" type="filename" uniform="true" interfacename="file" value="" />
       <input name="default" type="color4" interfacename="default" value="0, 0, 0, 0" />
       <input name="uvindex" type="integer" interfacename="uvindex" />
-      <input name="pivot" type="vector2" interfacename="pivot" value="0, 0" />
+      <input name="pivot" type="vector2" interfacename="pivot" value="0, 1" />
       <input name="scale" type="vector2" interfacename="scale" value="1, 1" />
       <input name="rotate" type="float" interfacename="rotate" value="0" />
       <input name="offset" type="vector2" interfacename="offset" value="0, 0" />
@@ -350,7 +350,7 @@
     <input name="file" type="filename" uniform="true" value="" />
     <input name="default" type="color3" value="0, 0, 0" />
     <input name="uvindex" type="integer" value="0" />
-    <input name="pivot" type="vector2" value="0, 0" />
+    <input name="pivot" type="vector2" value="0, 1" />
     <input name="scale" type="vector2" value="1, 1" />
     <input name="rotate" type="float" value="0" unit="degree" unittype="angle" uimin="0" uimax="360" />
     <input name="offset" type="vector2" value="0, 0" />
@@ -364,7 +364,7 @@
     <input name="file" type="filename" uniform="true" value="" />
     <input name="uvindex" type="integer" value="0" />
     <input name="default" type="color3" value="0, 0, 0" />
-    <input name="pivot" type="vector2" value="0, 0" />
+    <input name="pivot" type="vector2" value="0, 1" />
     <input name="scale" type="vector2" value="1, 1" />
     <input name="rotate" type="float" value="0" />
     <input name="offset" type="vector2" value="0, 0" />
@@ -383,12 +383,24 @@
       <input name="vaddressmode" type="string" uniform="true" interfacename="vaddressmode" value="periodic" />
       <input name="filtertype" type="string" uniform="true" interfacename="filtertype" value="linear" />
     </image>
+    <divide name="invert_scale" type="vector2">
+      <input name="in1" type="vector2" value="1.0, 1.0"/>
+      <input name="in2" type="vector2" interfacename="scale"/>
+    </divide>
+    <multiply name="negate_rotate" type="float">
+      <input name="in1" type="float" interfacename="rotate"/>
+      <input name="in2" type="float" value="-1.0"/>
+    </multiply>
+    <multiply name="negate_offset" type="vector2">
+      <input name="in1" type="vector2" interfacename="offset"/>
+      <input name="in2" type="vector2" value="-1.0, 1.0"/>
+    </multiply>
     <place2d name="place2d" type="vector2">
       <input name="texcoord" type="vector2" nodename="texcoord1" />
-      <input name="pivot" type="vector2" interfacename="pivot" value="0, 0" />
-      <input name="scale" type="vector2" interfacename="scale" value="1, 1" />
-      <input name="rotate" type="float" interfacename="rotate" value="0" />
-      <input name="offset" type="vector2" interfacename="offset" value="0, 0" />
+      <input name="pivot" type="vector2" interfacename="pivot" value="0, 1" />
+      <input name="scale" type="vector2" nodename="invert_scale" />
+      <input name="rotate" type="float" nodename="negate_rotate" />
+      <input name="offset" type="vector2" nodename="negate_offset" />
       <input name="operationorder" type="integer" interfacename="operationorder" value="0" />
     </place2d>
     <output name="out" type="color3" nodename="image" />
@@ -402,7 +414,7 @@
     <input name="file" type="filename" uniform="true" value="" />
     <input name="default" type="color4" value="0, 0, 0, 0" />
     <input name="uvindex" type="integer" value="0" />
-    <input name="pivot" type="vector2" value="0, 0" />
+    <input name="pivot" type="vector2" value="0, 1" />
     <input name="scale" type="vector2" value="1, 1" />
     <input name="rotate" type="float" value="0" unit="degree" unittype="angle" uimin="0" uimax="360" />
     <input name="offset" type="vector2" value="0, 0" />
@@ -416,7 +428,7 @@
     <input name="file" type="filename" uniform="true" value="" />
     <input name="default" type="color4" value="0, 0, 0, 0" />
     <input name="uvindex" type="integer" value="0" />
-    <input name="pivot" type="vector2" value="0, 0" />
+    <input name="pivot" type="vector2" value="0, 1" />
     <input name="scale" type="vector2" value="1, 1" />
     <input name="rotate" type="float" value="0" />
     <input name="offset" type="vector2" value="0, 0" />
@@ -435,12 +447,24 @@
       <input name="vaddressmode" type="string" uniform="true" interfacename="vaddressmode" value="periodic" />
       <input name="filtertype" type="string" uniform="true" interfacename="filtertype" value="linear" />
     </image>
+    <divide name="invert_scale" type="vector2">
+      <input name="in1" type="vector2" value="1.0, 1.0"/>
+      <input name="in2" type="vector2" interfacename="scale"/>
+    </divide>
+    <multiply name="negate_rotate" type="float">
+      <input name="in1" type="float" interfacename="rotate"/>
+      <input name="in2" type="float" value="-1.0"/>
+    </multiply>
+    <multiply name="negate_offset" type="vector2">
+      <input name="in1" type="vector2" interfacename="offset"/>
+      <input name="in2" type="vector2" value="-1.0, 1.0"/>
+    </multiply>
     <place2d name="place2d" type="vector2">
       <input name="texcoord" type="vector2" nodename="texcoord1" />
-      <input name="pivot" type="vector2" interfacename="pivot" value="0, 0" />
-      <input name="scale" type="vector2" interfacename="scale" value="1, 1" />
-      <input name="rotate" type="float" interfacename="rotate" value="0" />
-      <input name="offset" type="vector2" interfacename="offset" value="0, 0" />
+      <input name="pivot" type="vector2" interfacename="pivot" value="0, 1" />
+      <input name="scale" type="vector2" nodename="invert_scale" />
+      <input name="rotate" type="float" nodename="negate_rotate" />
+      <input name="offset" type="vector2" nodename="negate_offset"/>
       <input name="operationorder" type="integer" interfacename="operationorder" value="0" />
     </place2d>
     <output name="out" type="color4" nodename="image" />
@@ -454,7 +478,7 @@
     <input name="file" type="filename" uniform="true" value="" />
     <input name="default" type="float" value="0" />
     <input name="uvindex" type="integer" value="0" />
-    <input name="pivot" type="vector2" value="0, 0" />
+    <input name="pivot" type="vector2" value="0, 1" />
     <input name="scale" type="vector2" value="1, 1" />
     <input name="rotate" type="float" value="0" unit="degree" unittype="angle" uimin="0" uimax="360" />
     <input name="offset" type="vector2" value="0, 0" />
@@ -468,7 +492,7 @@
     <input name="file" type="filename" uniform="true" value="" />
     <input name="default" type="float" value="0" />
     <input name="uvindex" type="integer" value="0" />
-    <input name="pivot" type="vector2" value="0, 0" />
+    <input name="pivot" type="vector2" value="0, 1" />
     <input name="scale" type="vector2" value="1, 1" />
     <input name="rotate" type="float" value="0" />
     <input name="offset" type="vector2" value="0, 0" />
@@ -487,12 +511,24 @@
       <input name="vaddressmode" type="string" uniform="true" interfacename="vaddressmode" value="periodic" />
       <input name="filtertype" type="string" uniform="true" interfacename="filtertype" value="linear" />
     </image>
+    <divide name="invert_scale" type="vector2">
+      <input name="in1" type="vector2" value="1.0, 1.0"/>
+      <input name="in2" type="vector2" interfacename="scale"/>
+    </divide>
+    <multiply name="negate_rotate" type="float">
+      <input name="in1" type="float" interfacename="rotate"/>
+      <input name="in2" type="float" value="-1.0"/>
+    </multiply>
+    <multiply name="negate_offset" type="vector2">
+      <input name="in1" type="vector2" interfacename="offset"/>
+      <input name="in2" type="vector2" value="-1.0, 1.0"/>
+    </multiply>
     <place2d name="place2d" type="vector2">
       <input name="texcoord" type="vector2" nodename="texcoord1" />
-      <input name="pivot" type="vector2" interfacename="pivot" value="0, 0" />
-      <input name="scale" type="vector2" interfacename="scale" value="1, 1" />
-      <input name="rotate" type="float" interfacename="rotate" value="0" />
-      <input name="offset" type="vector2" interfacename="offset" value="0, 0" />
+      <input name="pivot" type="vector2" interfacename="pivot" value="0, 1" />
+      <input name="scale" type="vector2" nodename="invert_scale" />
+      <input name="rotate" type="float" nodename="negate_rotate" />
+      <input name="offset" type="vector2" nodename="negate_offset" />
       <input name="operationorder" type="integer" interfacename="operationorder" value="0" />
     </place2d>
     <output name="out" type="float" nodename="image" />
@@ -506,7 +542,7 @@
     <input name="file" type="filename" uniform="true" value="" />
     <input name="default" type="vector3" value="0, 0, 0" />
     <input name="uvindex" type="integer" value="0" />
-    <input name="pivot" type="vector2" value="0, 0" />
+    <input name="pivot" type="vector2" value="0, 1" />
     <input name="scale" type="vector2" value="1, 1" />
     <input name="rotate" type="float" value="0" unit="degree" unittype="angle" uimin="0" uimax="360" />
     <input name="offset" type="vector2" value="0, 0" />
@@ -520,7 +556,7 @@
     <input name="file" type="filename" uniform="true" value="" />
     <input name="default" type="vector3" value="0, 0, 0" />
     <input name="uvindex" type="integer" value="0" />
-    <input name="pivot" type="vector2" value="0, 0" />
+    <input name="pivot" type="vector2" value="0, 1" />
     <input name="scale" type="vector2" value="1, 1" />
     <input name="rotate" type="float" value="0" />
     <input name="offset" type="vector2" value="0, 0" />
@@ -539,12 +575,24 @@
       <input name="vaddressmode" type="string" uniform="true" interfacename="vaddressmode" value="periodic"/>
       <input name="filtertype" type="string" uniform="true" interfacename="filtertype" value="linear"/>
     </image>
+    <divide name="invert_scale" type="vector2">
+      <input name="in1" type="vector2" value="1.0, 1.0"/>
+      <input name="in2" type="vector2" interfacename="scale"/>
+    </divide>
+    <multiply name="negate_rotate" type="float">
+      <input name="in1" type="float" interfacename="rotate"/>
+      <input name="in2" type="float" value="-1.0"/>
+    </multiply>
+    <multiply name="negate_offset" type="vector2">
+      <input name="in1" type="vector2" interfacename="offset"/>
+      <input name="in2" type="vector2" value="-1.0, 1.0"/>
+    </multiply>
     <place2d name="place2d" type="vector2">
       <input name="texcoord" type="vector2" nodename="texcoord1"/>
-      <input name="pivot" type="vector2" interfacename="pivot" value="0, 0"/>
-      <input name="scale" type="vector2" interfacename="scale" value="1, 1"/>
-      <input name="rotate" type="float" interfacename="rotate" value="0"/>
-      <input name="offset" type="vector2" interfacename="offset" value="0, 0"/>
+      <input name="pivot" type="vector2" interfacename="pivot" value="0, 1"/>
+      <input name="scale" type="vector2" nodename="invert_scale" />
+      <input name="rotate" type="float" nodename="negate_rotate" />
+      <input name="offset" type="vector2" nodename="negate_offset" />
       <input name="operationorder" type="integer" interfacename="operationorder" value="0"/>
     </place2d>
     <output name="out" type="vector3" nodename="image" />
@@ -558,7 +606,7 @@
     <input name="file" type="filename" uniform="true" value="" />
     <input name="default" type="vector3" value="0.5, 0.5, 1" />
     <input name="uvindex" type="integer" value="0" />
-    <input name="pivot" type="vector2" value="0, 0" />
+    <input name="pivot" type="vector2" value="0, 1" />
     <input name="scale" type="vector2" value="1, 1" />
     <input name="rotate" type="float" value="0" unit="degree" unittype="angle" uimin="0" uimax="360" />
     <input name="offset" type="vector2" value="0, 0" />
@@ -572,7 +620,7 @@
     <input name="file" type="filename" uniform="true" value="" />
     <input name="default" type="vector3" value="0.5, 0.5, 1" />
     <input name="uvindex" type="integer" value="0" />
-    <input name="pivot" type="vector2" value="0, 0" />
+    <input name="pivot" type="vector2" value="0, 1" />
     <input name="scale" type="vector2" value="1, 1" />
     <input name="rotate" type="float" value="0" />
     <input name="offset" type="vector2" value="0, 0" />
@@ -594,12 +642,24 @@
     <normalmap name="normalmap" type="vector3">
       <input name="in" type="vector3" nodename="image" />
     </normalmap>
+    <divide name="invert_scale" type="vector2">
+      <input name="in1" type="vector2" value="1.0, 1.0"/>
+      <input name="in2" type="vector2" interfacename="scale"/>
+    </divide>
+    <multiply name="negate_rotate" type="float">
+      <input name="in1" type="float" interfacename="rotate"/>
+      <input name="in2" type="float" value="-1.0"/>
+    </multiply>
+    <multiply name="negate_offset" type="vector2">
+      <input name="in1" type="vector2" interfacename="offset"/>
+      <input name="in2" type="vector2" value="-1.0, 1.0"/>
+    </multiply>
     <place2d name="place2d" type="vector2" nodedef="ND_place2d_vector2" >
       <input name="texcoord" type="vector2" nodename="texcoord1" />
-      <input name="pivot" type="vector2" interfacename="pivot" value="0, 0" />
-      <input name="scale" type="vector2" interfacename="scale" value="1, 1" />
-      <input name="rotate" type="float" interfacename="rotate" value="0" unit="degree" unittype="angle" uimin="0" uimax="360" />
-      <input name="offset" type="vector2" interfacename="offset" value="0, 0" />
+      <input name="pivot" type="vector2" interfacename="pivot" value="0, 1" />
+      <input name="scale" type="vector2" nodename="invert_scale" value="1, 1" />
+      <input name="rotate" type="float" nodename="negate_rotate" />
+      <input name="offset" type="vector2" nodename ="negate_offset" />
       <input name="operationorder" type="integer" interfacename="operationorder" value="0" />
     </place2d>
     <output name="out" type="vector3" nodename="normalmap" />
