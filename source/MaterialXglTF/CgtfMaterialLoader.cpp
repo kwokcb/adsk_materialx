@@ -356,7 +356,7 @@ bool CgltfMaterialLoader::save(const FilePath& filePath)
 
             imageIndex++;
 
-            // Pull off color from gltf_coloredImage node
+            // Pull off color from gltf_colorImage node
             ValuePtr value = pbrNode->getInputValue(COLOR_SEMANTIC);
             if (value && value->isA<Color4>())
             {
@@ -676,8 +676,12 @@ NodePtr CgltfMaterialLoader::createColoredTexture(DocumentPtr& doc, const std::s
                                                   const Color4& color, const std::string & colorspace)
 {
     std::string newTextureName = doc->createValidChildName(nodeName);
-    NodePtr newTexture = doc->addNode("gltf_coloredimage", newTextureName, MULTI_OUTPUT_TYPE_STRING);
-    newTexture->setAttribute(InterfaceElement::NODE_DEF_ATTRIBUTE, "ND_gltf_colortiledimage" );
+    NodePtr newTexture = doc->addNode("gltf_colorimage", newTextureName, MULTI_OUTPUT_TYPE_STRING);
+    if (!newTexture)
+    {
+        return nullptr;
+    }
+    newTexture->setAttribute(InterfaceElement::NODE_DEF_ATTRIBUTE, "ND_gltf_colorimage" );
     if (_generateFullDefinitions)
     {
         newTexture->addInputsFromNodeDef();
@@ -794,15 +798,44 @@ void CgltfMaterialLoader::setColorInput(DocumentPtr materials, NodePtr shaderNod
 
             const Color4 color4(color[0], color[1], color[2], alpha);
             NodePtr newTexture = createColoredTexture(materials, imageNodeName, uri, color4, "srgb_texture");
+            if (newTexture)
+            {
+                // Handle transform
+                if (textureView->has_transform)
+                {
+                    const cgltf_texture_transform& transform = textureView->transform;
+                    InputPtr offsetInput = newTexture->addInputFromNodeDef("offset");
+                    if (offsetInput)
+                    {
+                        offsetInput->setValueString(std::to_string(transform.offset[0]) + "," +
+                                                    std::to_string(transform.offset[1]));
+                    }
+                    InputPtr rotationInput = newTexture->addInputFromNodeDef("rotate");
+                    if (rotationInput)
+                    {
+                        rotationInput->setValue<float>(transform.rotation);
+                    }
+                    InputPtr scaleInput = newTexture->addInputFromNodeDef("scale");
+                    if (scaleInput)
+                    {
+                        scaleInput->setValueString(std::to_string(transform.scale[0]) + "," +
+                                                    std::to_string(transform.scale[1]));
+                    }
+                    if (transform.has_texcoord)
+                    {
+                        //transform.texcoord;
+                    }
+                }
 
-            const string& newTextureName = newTexture->getName();
-            colorInput->setAttribute(PortElement::NODE_NAME_ATTRIBUTE, newTextureName);
-            colorInput->setOutputString("outcolor");
-            colorInput->removeAttribute(AttributeDef::VALUE_ATTRIBUTE);
+                const string& newTextureName = newTexture->getName();
+                colorInput->setAttribute(PortElement::NODE_NAME_ATTRIBUTE, newTextureName);
+                colorInput->setOutputString("outcolor");
+                colorInput->removeAttribute(AttributeDef::VALUE_ATTRIBUTE);
 
-            alphaInput->setAttribute(PortElement::NODE_NAME_ATTRIBUTE, newTextureName);
-            alphaInput->setOutputString("outa");
-            alphaInput->removeAttribute(AttributeDef::VALUE_ATTRIBUTE);
+                alphaInput->setAttribute(PortElement::NODE_NAME_ATTRIBUTE, newTextureName);
+                alphaInput->setOutputString("outa");
+                alphaInput->removeAttribute(AttributeDef::VALUE_ATTRIBUTE);
+            }
         }
     }
 
