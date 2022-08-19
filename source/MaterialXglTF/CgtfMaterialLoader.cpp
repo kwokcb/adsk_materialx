@@ -46,7 +46,7 @@ MATERIALX_NAMESPACE_BEGIN
 namespace
 {
 const float TO_DEGREE = 180.0f / 3.1415926535f;
-const float TO_RADIAN = 3.1415926535f / 180.0f;
+//const float TO_RADIAN = 3.1415926535f / 180.0f;
 const std::string SPACE_STRING = " ";
 const std::string IN_STRING = "in";
 const std::string FLOAT_STRING = "float";
