@@ -736,6 +736,13 @@ void setImageProperties(NodePtr image, const cgltf_texture_view* textureView)
         return;
     }
 
+    // Handle uvset index
+    InputPtr uvIndexInput = image->addInputFromNodeDef("uvindex");
+    if (uvIndexInput)
+    {
+        uvIndexInput->setValue<int>(textureView->texcoord);
+    }
+
     // Handle transform
     if (textureView->has_transform)
     {
@@ -768,7 +775,10 @@ void setImageProperties(NodePtr image, const cgltf_texture_view* textureView)
         // Handle uvset index
         if (transform.has_texcoord)
         {
-            InputPtr uvIndexInput = image->addInputFromNodeDef("uvindex");
+            if (!uvIndexInput)
+            {
+                uvIndexInput = image->addInputFromNodeDef("uvindex");
+            }
             if (uvIndexInput)
             {
                 uvIndexInput->setValue<int>(transform.texcoord);
