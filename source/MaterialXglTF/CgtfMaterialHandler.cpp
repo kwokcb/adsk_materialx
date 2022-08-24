@@ -4,7 +4,7 @@
 #include <MaterialXCore/Library.h>
 #include <MaterialXFormat/XmlIo.h>
 #include <MaterialXFormat/Util.h>
-#include <MaterialXglTF/CgltfMaterialLoader.h>
+#include <MaterialXglTF/CgltfMaterialHandler.h>
 
 #if defined(__GNUC__)
     #pragma GCC diagnostic push
@@ -167,7 +167,7 @@ void computeMeshMaterials(GLTFMaterialMeshList& materialMeshList, StringSet& mat
 
 }
 
-bool CgltfMaterialLoader::save(const FilePath& filePath)
+bool CgltfMaterialHandler::save(const FilePath& filePath)
 {
     if (!_materials)
     {
@@ -637,7 +637,7 @@ bool CgltfMaterialLoader::save(const FilePath& filePath)
     return true;
 }
 
-bool CgltfMaterialLoader::load(const FilePath& filePath)
+bool CgltfMaterialHandler::load(const FilePath& filePath)
 {
     const std::string input_filename = filePath.asString();
     const std::string ext = stringToLower(filePath.getExtension());
@@ -674,7 +674,7 @@ bool CgltfMaterialLoader::load(const FilePath& filePath)
 }
 
 // Utilities
-NodePtr CgltfMaterialLoader::createColoredTexture(DocumentPtr& doc, const std::string & nodeName, const std::string& fileName,
+NodePtr CgltfMaterialHandler::createColoredTexture(DocumentPtr& doc, const std::string & nodeName, const std::string& fileName,
                                                   const Color4& color, const std::string & colorspace)
 {
     std::string newTextureName = doc->createValidChildName(nodeName);
@@ -704,7 +704,7 @@ NodePtr CgltfMaterialLoader::createColoredTexture(DocumentPtr& doc, const std::s
 }
 
 
-NodePtr CgltfMaterialLoader::createTexture(DocumentPtr& doc, const std::string & nodeName, const std::string& fileName,
+NodePtr CgltfMaterialHandler::createTexture(DocumentPtr& doc, const std::string & nodeName, const std::string& fileName,
                                            const std::string& textureType, const std::string & colorspace, 
                                            const std::string& nodeType)
 {
@@ -837,7 +837,7 @@ void setImageProperties(NodePtr image, const cgltf_texture_view* textureView)
     }
 }
 
-void CgltfMaterialLoader::setNormalMapInput(DocumentPtr materials, NodePtr shaderNode, const std::string& inputName,
+void CgltfMaterialHandler::setNormalMapInput(DocumentPtr materials, NodePtr shaderNode, const std::string& inputName,
     const void* textureViewIn, const std::string& inputImageNodeName)
 {
     const cgltf_texture_view* textureView = static_cast<const cgltf_texture_view*>(textureViewIn);
@@ -866,7 +866,7 @@ void CgltfMaterialLoader::setNormalMapInput(DocumentPtr materials, NodePtr shade
     }
 }
 
-void CgltfMaterialLoader::setColorInput(DocumentPtr materials, NodePtr shaderNode, const std::string& colorInputName, 
+void CgltfMaterialHandler::setColorInput(DocumentPtr materials, NodePtr shaderNode, const std::string& colorInputName, 
                                        const Color3& color, float alpha, const std::string& alphaInputName, 
                                        const void* textureViewIn,
                                        const std::string& inputImageNodeName)
@@ -940,7 +940,7 @@ void CgltfMaterialLoader::setColorInput(DocumentPtr materials, NodePtr shaderNod
     }
 }
 
-void CgltfMaterialLoader::setFloatInput(DocumentPtr materials, NodePtr shaderNode, const std::string& inputName, 
+void CgltfMaterialHandler::setFloatInput(DocumentPtr materials, NodePtr shaderNode, const std::string& inputName, 
                                        float floatFactor, const void* textureViewIn,
                                        const std::string& inputImageNodeName)
 {
@@ -970,7 +970,7 @@ void CgltfMaterialLoader::setFloatInput(DocumentPtr materials, NodePtr shaderNod
     }
 }
 
-void CgltfMaterialLoader::loadMaterials(void *vdata)
+void CgltfMaterialHandler::loadMaterials(void *vdata)
 {
     cgltf_data* data = static_cast<cgltf_data*>(vdata);
 

@@ -317,5 +317,5 @@ jobs:
       uses: LKP-RnD/purge-expired-artifacts-action@v4
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
-        repo_to_purge: "/kwokcb/MaterialX"
+        repo_to_purge: "kwokcb/MaterialX"
         dry_run: "false"

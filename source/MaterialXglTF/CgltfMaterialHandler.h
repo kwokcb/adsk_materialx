@@ -1,6 +1,6 @@
 
-#ifndef MATERIALX_CGLTF_MATERIALLOADER_H
-#define MATERIALX_CGLTF_MATERIALLOADER_H
+#ifndef MATERIALX_CGLTF_MaterialHandler_H
+#define MATERIALX_CGLTF_MaterialHandler_H
 
 /// @file 
 /// GLTF material loader using the Cgltf library
@@ -11,24 +11,24 @@
 
 MATERIALX_NAMESPACE_BEGIN
 
-class MaterialLoader;
-class CgltfMaterialLoader;
+class MaterialHandler;
+class CgltfMaterialHandler;
 
 /// Shared pointer to a CgltfMateralLoader
-using MaterialLoaderPtr = std::shared_ptr<class MaterialLoader>;
-using CgltfMaterialLoaderPtr = std::shared_ptr<class CgltfMaterialLoader>;
+using MaterialHandlerPtr = std::shared_ptr<class MaterialHandler>;
+using CgltfMaterialHandlerPtr = std::shared_ptr<class CgltfMaterialHandler>;
 
-/// @class MaterialLoader
-/// Wrapper for loader to read materials as MaterialX
-class MX_GLTF_API MaterialLoader
+/// @class MaterialHandler
+/// Wrapper for handler to convert materials to / from MaterialX
+class MX_GLTF_API MaterialHandler
 {
   public:
-    MaterialLoader() 
+    MaterialHandler() 
         : _generateFullDefinitions(false)
         , _generateAssignments(false)
       {}
 
-    virtual ~MaterialLoader() = default;
+    virtual ~MaterialHandler() = default;
 
     /// Load materials from a given file
     virtual bool load(const FilePath& filePath) = 0;
@@ -120,22 +120,22 @@ class MX_GLTF_API MaterialLoader
 
 /// @class CgltfMateralLoader
 /// Wrapper for loader to read materials from GLTF files using the Cgltf library.
-class MX_GLTF_API CgltfMaterialLoader : public MaterialLoader
+class MX_GLTF_API CgltfMaterialHandler : public MaterialHandler
 {
   public:
-    CgltfMaterialLoader() 
-        : MaterialLoader()
+    CgltfMaterialHandler() 
+        : MaterialHandler()
     {
         _extensions = { "glb", "GLB", "gltf", "GLTF" };
     }
-    virtual ~CgltfMaterialLoader() 
+    virtual ~CgltfMaterialHandler() 
     {
         _materials = nullptr;
     }
 
 
     /// Create a new loader
-    static MaterialLoaderPtr create() { return std::make_shared<CgltfMaterialLoader>(); }
+    static MaterialHandlerPtr create() { return std::make_shared<CgltfMaterialHandler>(); }
 
     /// Load materials from file path
 
