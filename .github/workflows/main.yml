@@ -312,10 +312,3 @@ jobs:
         name: MaterialX_JavaScript
         path: javascript/build/installed/JavaScript/MaterialX        
         if-no-files-found: ignore   
-
-    - name: Delete expired artifacts
-      uses: LKP-RnD/purge-expired-artifacts-action@v4
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        repo_to_purge: "kwokcb/MaterialX"
-        dry_run: "false"

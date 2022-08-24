@@ -50,12 +50,24 @@ TEST_CASE("glTF: Valid glTF -> MTLX", "[gltf]")
         return true;
     };
 
-    // Scan for glTF files
+    // Scan for glTF sample mode files in resources directory
+    const mx::FilePath currentPath = mx::FilePath::getCurrentPath();
+    mx::FilePath rootPath = currentPath / "resources/Materials/TestSuite/glTF/2.0/";
+
+    // Check if an environment variable was set as the root
+    if (!rootPath.exists())
+    {
+        rootPath = mx::getEnviron("GLTF_SAMPLE_MODELS_ROOT");
+    }
+    if (!rootPath.exists())
+    {
+        std::cout << "glTF sample models not found: " << rootPath.asString() << ". Skipping test" << std::endl;
+        return;
+    }
+
     bool createAssignments = true;
     bool fullDefinition = false;
     const std::string GLTF_EXTENSION("gltf");
-    const mx::FilePath currentPath = mx::FilePath::getCurrentPath();
-    mx::FilePath rootPath = currentPath / "resources/Materials/TestSuite/glTF/2.0/";
     for (const mx::FilePath& dir : rootPath.getSubDirectories())
     {
         if (std::string::npos != dir.asString().find("glTF-Binary") || 
