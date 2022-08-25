@@ -50,6 +50,7 @@ const float TO_DEGREE = 180.0f / 3.1415926535f;
 const std::string SPACE_STRING = " ";
 const std::string IN_STRING = "in";
 const std::string FLOAT_STRING = "float";
+const std::string VEC3_STRING = "vector3";
 using GLTFMaterialMeshList = std::unordered_map<string,string>;
 const std::string DEFAULT_NODE_PREFIX = "NODE_";
 const std::string DEFAULT_MESH_PREFIX = "MESH_";
@@ -854,7 +855,7 @@ void CgltfMaterialHandler::setNormalMapInput(DocumentPtr materials, NodePtr shad
             std::string uri = texture->image->uri ? texture->image->uri : SPACE_STRING;
             // Note: we create a gltf_normalmap here
             NodePtr newTexture = createTexture(_materials, imageNodeName, uri,
-                                               "vector3", EMPTY_STRING, "gltf_normalmap");
+                                               VEC3_STRING, EMPTY_STRING, "gltf_normalmap");
             if (newTexture)
             {
                 setImageProperties(newTexture, textureView);
@@ -961,11 +962,56 @@ void CgltfMaterialHandler::setFloatInput(DocumentPtr materials, NodePtr shaderNo
                 setImageProperties(newTexture, textureView);
             }
             floatInput->setAttribute(PortElement::NODE_NAME_ATTRIBUTE, newTexture->getName());
-            floatInput->setValue<float>(floatFactor);
+            floatInput->removeAttribute(AttributeDef::VALUE_ATTRIBUTE);               
+
+            floatInput = shaderNode->addInputFromNodeDef("factor");
+            if (floatInput)
+            {
+                floatInput->setValue<float>(floatFactor);
+            }
         }
         else
         {
             floatInput->setValue<float>(floatFactor);
+        }
+    }
+}
+
+void CgltfMaterialHandler::setVector3Input(DocumentPtr materials, NodePtr shaderNode, const std::string& inputName, 
+                                       const Vector3& vecFactor, const void* textureViewIn,
+                                       const std::string& inputImageNodeName)
+{
+    const cgltf_texture_view* textureView = static_cast<const cgltf_texture_view*>(textureViewIn);
+
+    InputPtr vecInput = shaderNode->addInputFromNodeDef(inputName);
+    if (vecInput)
+    {
+        ValuePtr factor = Value::createValue<Vector3>(vecFactor);
+        const string factorString = factor->getValueString();
+
+        cgltf_texture* texture = textureView ? textureView->texture : nullptr;
+        if (texture && texture->image)
+        {
+            std::string imageNodeName = materials->createValidChildName(inputImageNodeName);
+            std::string uri = texture->image->uri ? texture->image->uri : SPACE_STRING;
+            NodePtr newTexture = createTexture(materials, imageNodeName, uri,
+                                               VEC3_STRING, EMPTY_STRING);
+            if (newTexture)
+            {
+                setImageProperties(newTexture, textureView);
+            }
+            vecInput->setAttribute(PortElement::NODE_NAME_ATTRIBUTE, newTexture->getName());
+            vecInput->removeAttribute(AttributeDef::VALUE_ATTRIBUTE);               
+
+            vecInput = shaderNode->addInputFromNodeDef("factor");
+            if (vecInput)
+            {
+                vecInput->setValueString(factorString);
+            }
+        }
+        else
+        {
+            vecInput->setValueString(factorString);
         }
     }
 }
@@ -1133,7 +1179,7 @@ void CgltfMaterialHandler::loadMaterials(void *vdata)
                 imageNodeName = _materials->createValidChildName(imageNodeName);
                 std::string uri = texture->image->uri ? texture->image->uri : SPACE_STRING;
                 NodePtr textureNode = createTexture(_materials, imageNodeName, uri,
-                                                    "vector3", EMPTY_STRING);
+                                                    VEC3_STRING, EMPTY_STRING);
                 if (textureNode)
                 {
                     setImageProperties(textureNode, &textureView);
@@ -1274,6 +1320,61 @@ void CgltfMaterialHandler::loadMaterials(void *vdata)
                 "image_sheen_roughness");
         }
 
+        // Parse iridescence
+        // typedef struct cgltf_iridescence
+        //{
+        //	cgltf_float iridescence_factor;
+        //	cgltf_texture_view iridescence_texture;
+        //	cgltf_float iridescence_ior;
+        //	cgltf_float iridescence_thickness_min;
+        //	cgltf_float iridescence_thickness_max;
+        //	cgltf_texture_view iridescence_thickness_texture;
+        //} cgltf_iridescence;
+        // https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_iridescence/README.md
+        if (material->has_iridescence)
+        {
+            const cgltf_iridescence& iridescence = material->iridescence;
+
+            setFloatInput(_materials, shaderNode, "iridescence",
+                iridescence.iridescence_factor, &iridescence.iridescence_texture,
+                "image_iridescence");
+
+            setFloatInput(_materials, shaderNode, "iridescence_ior",
+                iridescence.iridescence_ior, nullptr,
+                "image_iridescence_ior");
+
+            // Create special node to map thickness min, max and input texture
+            InputPtr floatInput = shaderNode->addInputFromNodeDef("iridescence_thickness");
+            if (floatInput)
+            {
+                const cgltf_texture_view& textureView = iridescence.iridescence_thickness_texture;
+                cgltf_texture* texture = textureView.texture;
+                if (texture && texture->image)
+                {
+                    std::string imageNodeName = _materials->createValidChildName("image_iridescence_thickness");
+                    std::string uri = texture->image->uri ? texture->image->uri : SPACE_STRING;
+                    NodePtr newTexture = createTexture(_materials, imageNodeName, uri, FLOAT_STRING, EMPTY_STRING, 
+                                                        "gltf_iridescence_thickness");
+                    if (newTexture)
+                    {
+                        InputPtr minInput = newTexture->addInputFromNodeDef("thicknessMin");
+                        if (minInput)
+                        {
+                            minInput->setValue<float>(iridescence.iridescence_thickness_min);
+                        }
+                        InputPtr maxInput = newTexture->addInputFromNodeDef("thicknessMax");
+                        if (maxInput)
+                        {
+                            maxInput->setValue<float>(iridescence.iridescence_thickness_max);
+                        }
+                        setImageProperties(newTexture, &textureView);
+                    }
+                    floatInput->setAttribute(PortElement::NODE_NAME_ATTRIBUTE, newTexture->getName());
+                    floatInput->removeAttribute(AttributeDef::VALUE_ATTRIBUTE);
+                }
+            }
+        }
+    
         // Parse clearcoat
         // typedef struct cgltf_clearcoat
         // {
@@ -1303,7 +1404,6 @@ void CgltfMaterialHandler::loadMaterials(void *vdata)
             // Normal map clearcoat_normal
             setNormalMapInput(_materials, shaderNode, "clearcoat_normal", &material->normal_texture, 
                             "image_clearcoat_normal");
-
         }
 
         // Parse transmission

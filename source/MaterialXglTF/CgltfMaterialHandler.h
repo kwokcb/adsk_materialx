@@ -167,6 +167,9 @@ class MX_GLTF_API CgltfMaterialHandler : public MaterialHandler
     void    setFloatInput(DocumentPtr materials, NodePtr shaderNode, const std::string& inputName, 
                           float floatFactor, const void* textureView,
                           const std::string& inputImageNodeName);
+    void    setVector3Input(DocumentPtr materials, NodePtr shaderNode, const std::string& inputName, 
+                            const Vector3& vecFactor, const void* textureViewIn,
+                            const std::string& inputImageNodeName);
     void    setNormalMapInput(DocumentPtr materials, NodePtr shaderNode, const std::string& inputName, 
                               const void* textureViewIn, const std::string& inputImageNodeName);
 
