@@ -666,10 +666,7 @@ bool CgltfMaterialHandler::load(const FilePath& filePath)
 
     loadMaterials(data);
 
-    if (data)
-    {
-        cgltf_free(data);
-    }
+    cgltf_free(data);
 
     return true;
 }
@@ -721,11 +718,18 @@ NodePtr CgltfMaterialHandler::createTexture(DocumentPtr& doc, const std::string 
         newTexture->addInputsFromNodeDef();
     }
     InputPtr fileInput = newTexture->addInputFromNodeDef(Implementation::FILE_ATTRIBUTE);
-    fileInput->setValue(fileName, FILENAME_TYPE_STRING);
-    if (!colorspace.empty())
+    if (fileInput)
     {
-        fileInput->setAttribute(Element::COLOR_SPACE_ATTRIBUTE, colorspace);
+        fileInput->setValue(fileName, FILENAME_TYPE_STRING);
+        if (!colorspace.empty())
+        {
+            fileInput->setAttribute(Element::COLOR_SPACE_ATTRIBUTE, colorspace);
+        }
     }
+    //else
+    //{
+    //    std::cout << "Invalid texture type node created: " << textureType << std::endl;
+    //}
     return newTexture;
 }
 

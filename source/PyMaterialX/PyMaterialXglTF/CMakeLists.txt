@@ -19,9 +19,10 @@ set_target_properties(
 
 target_link_libraries(
     PyMaterialXglTF
-    PUBLIC PyMaterialXCore
-           MaterialXFormat
-    PRIVATE ${CMAKE_DL_LIBS})
+    PUBLIC PyMaterialXCore           
+    PRIVATE MaterialXRender
+            MaterialXglTF
+            ${CMAKE_DL_LIBS})
 
 install(TARGETS PyMaterialXglTF
         DESTINATION "python/MaterialX")
