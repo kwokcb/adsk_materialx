@@ -1489,19 +1489,59 @@ void Viewer::saveDotFiles()
 {
     try
     {
+        mx::FilePath baseFilename = getBaseOutputPath();
+
+
         MaterialPtr material = getSelectedMaterial();
         mx::TypedElementPtr elem = material ? material->getElement() : nullptr;
-        mx::NodePtr shaderNode = elem->asA<mx::Node>();
+        mx::OutputPtr rootOutput = elem->asA<mx::Output>();
+        mx::NodePtr shaderNode = nullptr;
+        mx::NodeGraphPtr graphNode = nullptr;
+        if (rootOutput)
+        {
+            mx::ElementPtr parentPtr = rootOutput->getParent();
+            if (parentPtr == rootOutput->getRoot())
+            {
+                shaderNode = rootOutput->getConnectedNode();
+            }
+            else
+            {
+                shaderNode = parentPtr ? parentPtr->asA<mx::Node>() : nullptr;
+                if (!shaderNode)
+                {
+                    graphNode = parentPtr ? parentPtr->asA<mx::NodeGraph>() : nullptr;
+                }
+            }
+        }
+        else
+        {
+            shaderNode = elem->asA<mx::Node>();
+        }
+        
+        if (graphNode)
+        {
+            std::string dotString = graphNode->asMermaid(graphNode->getNamePath());
+            std::string dotFilename = baseFilename.asString() + "_" + graphNode->getName() + ".dot";
+            writeTextFile(dotString, dotFilename);
+        }
+
+        if (shaderNode && shaderNode->getType() == mx::MATERIAL_TYPE_STRING)
+        {
+            std::vector<mx::NodePtr> shaderNodes = mx::getShaderNodes(shaderNode);
+            if (!shaderNodes.empty())
+            {
+                shaderNode = shaderNodes[0];
+            }
+        }
         if (shaderNode)
         {
-            mx::FilePath baseFilename = getBaseOutputPath();
             for (mx::InputPtr input : shaderNode->getInputs())
             {
                 mx::OutputPtr output = input->getConnectedOutput();
                 mx::ConstNodeGraphPtr nodeGraph = output ? output->getAncestorOfType<mx::NodeGraph>() : nullptr;
                 if (nodeGraph)
                 {
-                    std::string dotString = nodeGraph->asStringDot();
+                    std::string dotString = nodeGraph->asMermaid(nodeGraph->getNamePath());
                     std::string dotFilename = baseFilename.asString() + "_" + nodeGraph->getName() + ".dot";
                     writeTextFile(dotString, dotFilename);
                 }
@@ -1512,7 +1552,7 @@ void Viewer::saveDotFiles()
             mx::NodeGraphPtr nodeGraph = implement ? implement->asA<mx::NodeGraph>() : nullptr;
             if (nodeGraph)
             {
-                std::string dotString = nodeGraph->asStringDot();
+                std::string dotString =  nodeGraph->asMermaid(nodeGraph->getNamePath());
                 std::string dotFilename = baseFilename.asString() + "_" + nodeDef->getName() + ".dot";
                 writeTextFile(dotString, dotFilename);
             }

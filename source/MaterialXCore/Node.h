@@ -314,6 +314,8 @@ class MX_CORE_API GraphElement : public InterfaceElement
     /// formatting details.
     string asStringDot() const;
 
+    string asMermaid(const string& rootName) const;
+
     /// @}
 };
 

@@ -608,6 +608,78 @@ string GraphElement::asStringDot() const
     return dot;
 }
 
+string GraphElement::asMermaid(const string& rootName) const
+{
+    string dot = "graph TD;\n";
+
+    const string graphName = rootName.size() ? rootName : getNamePath();
+    dot += "  subgraph " + graphName + "; \n";
+
+    // Write out all connections.
+    std::set<Edge> processedEdges;
+    StringSet processedInterfaces;
+    for (OutputPtr output : getOutputs())
+    {
+        for (Edge edge : output->traverseGraph())
+        {
+            if (!processedEdges.count(edge))
+            {
+                ElementPtr upstreamElem = edge.getUpstreamElement();
+                ElementPtr downstreamElem = edge.getDownstreamElement();
+                ElementPtr connectingElem = edge.getConnectingElement();
+
+                dot += "    ";
+                dot += graphName + "/" + upstreamElem->getName();
+                dot += " --";
+
+                if (connectingElem)
+                {
+                    dot += "." + connectingElem->getName() + "--> ";
+                }
+                else
+                {
+                    dot += "> ";
+                }
+                dot += graphName + "/" + downstreamElem->getName();
+                dot += "\n";
+
+                NodePtr upstreamNode = upstreamElem->asA<Node>();
+                if (upstreamNode && !processedInterfaces.count(upstreamNode->getName()))
+                {
+                    for (InputPtr input : upstreamNode->getInputs())
+                    {
+                        if (input->hasInterfaceName())
+                        {
+                            const string graphInterfaceName = graphName + "." + input->getInterfaceName();
+                            //dot += "    style " + graphInterfaceName + " fill:#bbb,color:#000\n";
+                            dot += "    ";
+                            dot += graphInterfaceName;
+                            if (connectingElem)
+                            {
+                                dot += " ==" + connectingElem->getName() + "==> ";
+                            }
+                            else
+                            {
+                                dot += " ==> ";
+                            }
+
+                            dot += graphName + "/" + upstreamNode->getName();
+                            dot += "\n";
+                        }
+                    }
+                    processedInterfaces.insert(upstreamNode->getName());
+                }
+
+                processedEdges.insert(edge);
+            }
+        }
+    }
+
+    dot += "  end\n";
+
+    return dot;
+}
+
 //
 // NodeGraph methods
 //
