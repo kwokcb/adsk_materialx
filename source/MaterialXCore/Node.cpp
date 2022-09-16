@@ -610,7 +610,8 @@ string GraphElement::asStringDot() const
 
 string GraphElement::asMermaid(const string& rootName) const
 {
-    string dot = "graph TD;\n";
+    string dot = "```mermaid\n";
+    dot += "graph TD;\n";
 
     const string graphName = rootName.size() ? rootName : getNamePath();
     dot += "  subgraph " + graphName + "; \n";
@@ -618,6 +619,8 @@ string GraphElement::asMermaid(const string& rootName) const
     // Write out all connections.
     std::set<Edge> processedEdges;
     StringSet processedInterfaces;
+    unsigned int idNum = 1;
+
     for (OutputPtr output : getOutputs())
     {
         for (Edge edge : output->traverseGraph())
@@ -642,6 +645,10 @@ string GraphElement::asMermaid(const string& rootName) const
                 }
                 dot += graphName + "/" + downstreamElem->getName();
                 dot += "\n";
+                if (downstreamElem->isA<Output>())
+                {
+                    dot += "    style " + downstreamElem->getName() + " fill:#efe,color:#000\n";
+                }
 
                 NodePtr upstreamNode = upstreamElem->asA<Node>();
                 if (upstreamNode && !processedInterfaces.count(upstreamNode->getName()))
@@ -651,20 +658,13 @@ string GraphElement::asMermaid(const string& rootName) const
                         if (input->hasInterfaceName())
                         {
                             const string graphInterfaceName = graphName + "." + input->getInterfaceName();
-                            //dot += "    style " + graphInterfaceName + " fill:#bbb,color:#000\n";
-                            dot += "    ";
-                            dot += graphInterfaceName;
-                            if (connectingElem)
-                            {
-                                dot += " ==" + connectingElem->getName() + "==> ";
-                            }
-                            else
-                            {
-                                dot += " ==> ";
-                            }
-
-                            dot += graphName + "/" + upstreamNode->getName();
+                            dot += "    "; 
+                            string id = "id" + std::to_string(idNum++);
+                            dot += id + "([" + graphInterfaceName + "])";
+                            dot += " ==." + input->getName() + "==> ";
+                            dot += graphName + "/" + upstreamElem->getName();
                             dot += "\n";
+                            dot += "    style " + id + " fill:#efe,color:#000\n";
                         }
                     }
                     processedInterfaces.insert(upstreamNode->getName());
@@ -676,6 +676,7 @@ string GraphElement::asMermaid(const string& rootName) const
     }
 
     dot += "  end\n";
+    dot += "```\n";
 
     return dot;
 }

@@ -1520,7 +1520,11 @@ void Viewer::saveDotFiles()
         
         if (graphNode)
         {
-            std::string dotString = graphNode->asMermaid(graphNode->getNamePath());
+            std::string mmString = graphNode->asMermaid(graphNode->getNamePath());
+            std::string mmFilename = baseFilename.asString() + "_" + graphNode->getName() + ".md";
+            writeTextFile(mmString, mmFilename);
+
+            std::string dotString = graphNode->asStringDot();
             std::string dotFilename = baseFilename.asString() + "_" + graphNode->getName() + ".dot";
             writeTextFile(dotString, dotFilename);
         }
@@ -1541,9 +1545,14 @@ void Viewer::saveDotFiles()
                 mx::ConstNodeGraphPtr nodeGraph = output ? output->getAncestorOfType<mx::NodeGraph>() : nullptr;
                 if (nodeGraph)
                 {
-                    std::string dotString = nodeGraph->asMermaid(nodeGraph->getNamePath());
+                    std::string mmString = nodeGraph->asMermaid(nodeGraph->getNamePath());
+                    std::string mmFilename = baseFilename.asString() + "_" + nodeGraph->getName() + ".md";
+                    writeTextFile(mmString, mmFilename);
+
+                    std::string dotString = nodeGraph->asStringDot();
                     std::string dotFilename = baseFilename.asString() + "_" + nodeGraph->getName() + ".dot";
                     writeTextFile(dotString, dotFilename);
+
                 }
             }
 
@@ -1552,9 +1561,14 @@ void Viewer::saveDotFiles()
             mx::NodeGraphPtr nodeGraph = implement ? implement->asA<mx::NodeGraph>() : nullptr;
             if (nodeGraph)
             {
-                std::string dotString =  nodeGraph->asMermaid(nodeGraph->getNamePath());
+                std::string mmString =  nodeGraph->asMermaid(nodeGraph->getNamePath());
+                std::string mmFilename = baseFilename.asString() + "_" + nodeDef->getName() + ".md";
+                writeTextFile(mmString, mmFilename);
+
+                std::string dotString =  nodeGraph->asStringDot();
                 std::string dotFilename = baseFilename.asString() + "_" + nodeDef->getName() + ".dot";
                 writeTextFile(dotString, dotFilename);
+
             }
             new ng::MessageDialog(this, ng::MessageDialog::Type::Information, "Saved dot files: ", baseFilename.asString() + "_*.dot");
         }
