@@ -647,7 +647,7 @@ string GraphElement::asMermaid(const string& rootName) const
                 dot += "\n";
                 if (downstreamElem->isA<Output>())
                 {
-                    dot += "    style " + downstreamElem->getName() + " fill:#efe,color:#000\n";
+                    dot += "    style " + graphName + "/" + downstreamElem->getName() + " fill:#efe,color:#000\n";
                 }
 
                 NodePtr upstreamNode = upstreamElem->asA<Node>();

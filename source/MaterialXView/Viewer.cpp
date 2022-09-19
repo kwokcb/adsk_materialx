@@ -1491,7 +1491,6 @@ void Viewer::saveDotFiles()
     {
         mx::FilePath baseFilename = getBaseOutputPath();
 
-
         MaterialPtr material = getSelectedMaterial();
         mx::TypedElementPtr elem = material ? material->getElement() : nullptr;
         mx::OutputPtr rootOutput = elem->asA<mx::Output>();
@@ -1518,6 +1517,7 @@ void Viewer::saveDotFiles()
             shaderNode = elem->asA<mx::Node>();
         }
         
+        bool wroteFiles = false;
         if (graphNode)
         {
             std::string mmString = graphNode->asMermaid(graphNode->getNamePath());
@@ -1527,6 +1527,8 @@ void Viewer::saveDotFiles()
             std::string dotString = graphNode->asStringDot();
             std::string dotFilename = baseFilename.asString() + "_" + graphNode->getName() + ".dot";
             writeTextFile(dotString, dotFilename);
+
+            wroteFiles = true;
         }
 
         if (shaderNode && shaderNode->getType() == mx::MATERIAL_TYPE_STRING)
@@ -1553,6 +1555,7 @@ void Viewer::saveDotFiles()
                     std::string dotFilename = baseFilename.asString() + "_" + nodeGraph->getName() + ".dot";
                     writeTextFile(dotString, dotFilename);
 
+                    wroteFiles = true;
                 }
             }
 
@@ -1569,7 +1572,11 @@ void Viewer::saveDotFiles()
                 std::string dotFilename = baseFilename.asString() + "_" + nodeDef->getName() + ".dot";
                 writeTextFile(dotString, dotFilename);
 
+                wroteFiles = true;
             }
+        }
+        if (wroteFiles)
+        {
             new ng::MessageDialog(this, ng::MessageDialog::Type::Information, "Saved dot files: ", baseFilename.asString() + "_*.dot");
         }
     }
