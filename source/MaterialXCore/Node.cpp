@@ -608,12 +608,16 @@ string GraphElement::asStringDot() const
     return dot;
 }
 
-string GraphElement::asMermaid(const string& rootName) const
+string GraphElement::asMermaid(const string& rootName, const std::vector<OutputPtr> outputPaths) const
 {
     string dot = "```mermaid\n";
     dot += "graph TD;\n";
 
-    const string graphName = rootName.size() ? rootName : getNamePath();
+    string graphName = rootName.size() ? rootName : getNamePath();
+    if (graphName.empty())
+    {
+        graphName = "DocumentRoot";
+    }
     dot += "  subgraph " + graphName + "; \n";
 
     // Write out all connections.
@@ -621,9 +625,18 @@ string GraphElement::asMermaid(const string& rootName) const
     StringSet processedInterfaces;
     unsigned int idNum = 1;
 
-    for (OutputPtr output : getOutputs())
+    std::vector<OutputPtr> outputs = getOutputs();
+    if (outputs.empty())
     {
-        for (Edge edge : output->traverseGraph())
+        for (OutputPtr out : outputPaths)
+        {
+            outputs.push_back(out);
+        }
+    }
+    for (OutputPtr output : outputs)
+    {
+        ElementPtr root = output->getParent() ? output->getParent() : output;
+        for (Edge edge : root->traverseGraph())
         {
             if (!processedEdges.count(edge))
             {
@@ -632,18 +645,18 @@ string GraphElement::asMermaid(const string& rootName) const
                 ElementPtr connectingElem = edge.getConnectingElement();
 
                 dot += "    ";
-                dot += graphName + "/" + upstreamElem->getName();
+                dot += upstreamElem->getNamePath();
                 dot += " --";
 
                 if (connectingElem)
                 {
-                    dot += "." + connectingElem->getName() + "--> ";
+                    dot += connectingElem->getNamePath() + "--> ";
                 }
                 else
                 {
                     dot += "> ";
                 }
-                dot += graphName + "/" + downstreamElem->getName();
+                dot += downstreamElem->getNamePath();
                 dot += "\n";
                 if (downstreamElem->isA<Output>())
                 {
@@ -738,16 +751,24 @@ void Node::addInputsFromNodeDef()
     NodeDefPtr nodeDef = getNodeDef();
     if (nodeDef)
     {
-        for (InputPtr nodeDefInput : nodeDef->getActiveInputs())
+        for (ValueElementPtr nodeDefElem : nodeDef->getActiveValueElements())
         {
-            const string& inputName = nodeDefInput->getName();
-            InputPtr nodeInput = getInput(inputName);
-            if (!nodeInput)
+            const string& inputName = nodeDefElem->getName();
+            ValueElementPtr valueElem = getValueElement(inputName);
+            ValueElementPtr newElem = nullptr;
+            if (!valueElem)
             {
-                nodeInput = addInput(inputName, nodeDefInput->getType());
-                if (nodeDefInput->hasValueString())
+                if (nodeDefElem->isA<Output>())
                 {
-                    nodeInput->setValueString(nodeDefInput->getValueString());
+                    newElem = addOutput(nodeDefElem->getName(), nodeDefElem->getType());
+                }
+                else if (nodeDefElem->isA<Input>())
+                {
+                    newElem= addInput(inputName, nodeDefElem->getType());
+                }
+                if (newElem && nodeDefElem->hasValueString())
+                {
+                    newElem->setValueString(nodeDefElem->getValueString());
                 }
             }
         }

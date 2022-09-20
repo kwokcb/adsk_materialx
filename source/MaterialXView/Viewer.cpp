@@ -1207,7 +1207,7 @@ void Viewer::loadDocument(const mx::FilePath& filename, mx::DocumentPtr librarie
         }
 
         // If requested, add implicit inputs to top-level nodes.
-        if (_showAllInputs)
+        //if (_showAllInputs)
         {
             for (mx::NodePtr node : doc->getNodes())
             {
@@ -1493,44 +1493,64 @@ void Viewer::saveDotFiles()
 
         MaterialPtr material = getSelectedMaterial();
         mx::TypedElementPtr elem = material ? material->getElement() : nullptr;
-        mx::OutputPtr rootOutput = elem->asA<mx::Output>();
         mx::NodePtr shaderNode = nullptr;
-        mx::NodeGraphPtr graphNode = nullptr;
+        mx::GraphElementPtr graphNode = nullptr;
+
+        // Handle an output. Get parent graph
+        std::vector<mx::OutputPtr> outputs;
+
+        mx::OutputPtr rootOutput = elem->asA<mx::Output>();
         if (rootOutput)
         {
+            outputs.push_back(rootOutput);
+
             mx::ElementPtr parentPtr = rootOutput->getParent();
-            if (parentPtr == rootOutput->getRoot())
+            // Top level. Use this output in document graph
+            if (parentPtr->isA<mx::NodeGraph>())
             {
-                shaderNode = rootOutput->getConnectedNode();
+                graphNode = parentPtr->asA<mx::NodeGraph>();
             }
             else
             {
-                shaderNode = parentPtr ? parentPtr->asA<mx::Node>() : nullptr;
-                if (!shaderNode)
-                {
-                    graphNode = parentPtr ? parentPtr->asA<mx::NodeGraph>() : nullptr;
-                }
+                graphNode = elem->getDocument();
             }
         }
         else
         {
-            shaderNode = elem->asA<mx::Node>();
+            mx::NodePtr node = elem->asA<mx::Node>();
+            if (node && node->getType() == mx::MATERIAL_TYPE_STRING)
+            {
+                std::vector<mx::NodePtr> shaderNodes = mx::getShaderNodes(node);
+                if (!shaderNodes.empty())
+                {
+                    node = shaderNodes[0];
+                }
+            }
+            if (node)
+            {
+                for (mx::OutputPtr out : node->getActiveOutputs())
+                {
+                    outputs.push_back(out);
+                }
+                graphNode = elem->getDocument();
+            }
         }
         
         bool wroteFiles = false;
-        if (graphNode)
+        if (graphNode && !outputs.empty())
         {
-            std::string mmString = graphNode->asMermaid(graphNode->getNamePath());
+            std::string mmString = graphNode->asMermaid(graphNode->getNamePath(), outputs);
             std::string mmFilename = baseFilename.asString() + "_" + graphNode->getName() + ".md";
             writeTextFile(mmString, mmFilename);
 
-            std::string dotString = graphNode->asStringDot();
-            std::string dotFilename = baseFilename.asString() + "_" + graphNode->getName() + ".dot";
-            writeTextFile(dotString, dotFilename);
+            //std::string dotString = graphNode->asStringDot();
+            //std::string dotFilename = baseFilename.asString() + "_" + graphNode->getName() + ".dot";
+            //writeTextFile(dotString, dotFilename);
 
             wroteFiles = true;
         }
 
+        /*
         if (shaderNode && shaderNode->getType() == mx::MATERIAL_TYPE_STRING)
         {
             std::vector<mx::NodePtr> shaderNodes = mx::getShaderNodes(shaderNode);
@@ -1558,7 +1578,9 @@ void Viewer::saveDotFiles()
                     wroteFiles = true;
                 }
             }
+            */
 
+            /* 
             mx::NodeDefPtr nodeDef = shaderNode->getNodeDef();
             mx::InterfaceElementPtr implement = nodeDef ? nodeDef->getImplementation() : nullptr;
             mx::NodeGraphPtr nodeGraph = implement ? implement->asA<mx::NodeGraph>() : nullptr;
@@ -1574,7 +1596,8 @@ void Viewer::saveDotFiles()
 
                 wroteFiles = true;
             }
-        }
+            
+        } */
         if (wroteFiles)
         {
             new ng::MessageDialog(this, ng::MessageDialog::Type::Information, "Saved dot files: ", baseFilename.asString() + "_*.dot");
