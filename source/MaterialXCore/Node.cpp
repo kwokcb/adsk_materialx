@@ -650,7 +650,7 @@ string GraphElement::asMermaid(const string& rootName, const std::vector<OutputP
 
                 if (connectingElem)
                 {
-                    dot += connectingElem->getNamePath() + "--> ";
+                    dot += "." + connectingElem->getName() + "--> ";
                 }
                 else
                 {
@@ -670,12 +670,12 @@ string GraphElement::asMermaid(const string& rootName, const std::vector<OutputP
                     {
                         if (input->hasInterfaceName())
                         {
-                            const string graphInterfaceName = graphName + "." + input->getInterfaceName();
+                            const string graphInterfaceName = upstreamNode->getParent()->getNamePath() + "/" + input->getInterfaceName();
                             dot += "    "; 
                             string id = "id" + std::to_string(idNum++);
                             dot += id + "([" + graphInterfaceName + "])";
                             dot += " ==." + input->getName() + "==> ";
-                            dot += graphName + "/" + upstreamElem->getName();
+                            dot += upstreamElem->getNamePath();
                             dot += "\n";
                             dot += "    style " + id + " fill:#efe,color:#000\n";
                         }

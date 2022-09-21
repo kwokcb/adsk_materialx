@@ -1520,11 +1520,11 @@ void Viewer::saveDotFiles()
             mx::NodePtr node = elem->asA<mx::Node>();
             if (node && node->getType() == mx::MATERIAL_TYPE_STRING)
             {
-                std::vector<mx::NodePtr> shaderNodes = mx::getShaderNodes(node);
-                if (!shaderNodes.empty())
-                {
-                    node = shaderNodes[0];
-                }
+                //std::vector<mx::NodePtr> shaderNodes = mx::getShaderNodes(node);
+                //if (!shaderNodes.empty())
+                //{
+                //    node = shaderNodes[0];
+                //}
             }
             if (node)
             {
