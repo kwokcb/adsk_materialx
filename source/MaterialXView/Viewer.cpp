@@ -1540,7 +1540,7 @@ void Viewer::saveDotFiles()
         if (graphNode && !outputs.empty())
         {
             std::string mmString = graphNode->asMermaid(graphNode->getNamePath(), outputs);
-            std::string mmFilename = baseFilename.asString() + "_" + graphNode->getName() + ".md";
+            std::string mmFilename = baseFilename.asString() + "_" + mx::createValidName(elem->getNamePath()) + ".md";
             writeTextFile(mmString, mmFilename);
 
             //std::string dotString = graphNode->asStringDot();
