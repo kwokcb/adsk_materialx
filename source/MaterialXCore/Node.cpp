@@ -616,13 +616,14 @@ string GraphElement::asMermaid(const string& rootName, const std::vector<OutputP
         graphName = "Document";
     }
 
-    string rootGraphString = "  subgraph " + graphName + "; \n";
-    string currentGraphString = rootGraphString;
+    //string rootGraphString = "  subgraph " + graphName + "; \n";
+    //string currentGraphString = rootGraphString;
+    string currentGraphString;
 
     // Write out all connections.
     std::set<Edge> processedEdges;
     StringSet processedInterfaces;
-    std::unordered_map<string, StringVec> subGraphs;
+    std::unordered_map<string, StringSet> subGraphs;
 
     std::vector<OutputPtr> outputs;
     if (!outputPaths.empty())
@@ -643,7 +644,7 @@ string GraphElement::asMermaid(const string& rootName, const std::vector<OutputP
         if (!parent->isA<NodeGraph>())
             root = parent;
         else
-            root = output; // output->getParent() ? output->getParent() : output;
+            root = output;
         for (Edge edge : root->traverseGraph())
         {
             if (!processedEdges.count(edge))
@@ -652,12 +653,32 @@ string GraphElement::asMermaid(const string& rootName, const std::vector<OutputP
                 ElementPtr downstreamElem = edge.getDownstreamElement();
                 ElementPtr connectingElem = edge.getConnectingElement();
 
-                const string upStreamLabel = upstreamElem->getNamePath();
-                const string upStreamName = createValidName(upStreamLabel) + "[" + upStreamLabel + "]";
-                currentGraphString += "    ";
-                currentGraphString += upStreamName;
-                currentGraphString += " --";
+                // Add upstream
+                ElementPtr upstreamElemParent = upstreamElem->getParent();
+                string upstreamGraphId;
+                string upstreamName = upstreamElem->getName();
+                string upstreamLabel = upstreamName;
+                if (upstreamElemParent)
+                {
+                    upstreamGraphId = createValidName(upstreamElemParent->getNamePath());
+                    if (!upstreamGraphId.empty())
+                    {
+                        upstreamLabel = upstreamGraphId + "_" + upstreamName;
+                        if (subGraphs.count(upstreamGraphId))
+                        {
+                            subGraphs[upstreamGraphId].insert(upstreamLabel);
+                        }
+                        else
+                        {
+                            StringSet newSet;
+                            newSet.insert(upstreamLabel);
+                            subGraphs[upstreamGraphId] = newSet;
+                        }
+                    }
+                }
+                currentGraphString += "    " + upstreamLabel + "[" + upstreamName + "]" + " --";
 
+                // Add connecting element
                 if (connectingElem)
                 {
                     currentGraphString += "." + connectingElem->getName() + "--> ";
@@ -666,19 +687,38 @@ string GraphElement::asMermaid(const string& rootName, const std::vector<OutputP
                 {
                     currentGraphString += "> ";
                 }
-                const string downstreamLabel = downstreamElem->getNamePath();
-                const string downstreamName = createValidName(downstreamLabel); 
-                currentGraphString += downstreamName + "[" + downstreamLabel + "]";;
-                currentGraphString += "\n";
-                if (downstreamElem->isA<Output>())
-                {
-                    currentGraphString += "    style " + downstreamName + " fill:#1b1,color:#111\n";
-                }
 
-                // Check if nodes are in a subgraph which is not the current graph
-                if (upstreamElem->getParent() != output->getParent())
+                // Add downstream
+                ElementPtr downstreamParent = downstreamElem->getParent();
+                string downstreamGraphId;
+                string downstreamName = downstreamElem->getName();
+                string downstreamLabel = downstreamName;
+                if (downstreamParent)
                 {
-                    //const string graphName = upstreamElem->getParent()->getNamePath();
+                    downstreamGraphId = createValidName(downstreamParent->getNamePath());
+                    if (!downstreamGraphId.empty())
+                    {
+                        downstreamLabel = downstreamGraphId + "_" + downstreamName;
+                        if (subGraphs.count(downstreamGraphId))
+                        {
+                            subGraphs[downstreamGraphId].insert(downstreamLabel);
+                        }
+                        else
+                        {
+                            StringSet newSet;
+                            newSet.insert(downstreamLabel);
+                            subGraphs[downstreamGraphId] = newSet;
+                        }
+                    }
+                }
+                if (!downstreamElem->isA<Output>())
+                {
+                    currentGraphString += downstreamLabel + "[" + downstreamName + "]" + "\n";
+                }
+                else
+                {
+                    currentGraphString += downstreamLabel + "([" + downstreamName + "])" + "\n";
+                    currentGraphString += "    style " + downstreamLabel + " fill:#1b1,color:#111\n";
                 }
 
                 NodePtr upstreamNode = upstreamElem->asA<Node>();
@@ -698,15 +738,29 @@ string GraphElement::asMermaid(const string& rootName, const std::vector<OutputP
                             const InputPtr interfaceInput = upstreamGraph ? upstreamGraph->getInput(interfaceName) : nullptr;
                             if (interfaceInput && !interfaceInput->getConnectedNode())
                             {
-                                const string graphInterfaceLabel = upstreamNode->getParent()->getNamePath() + "/" + input->getInterfaceName();
-                                const string graphInterfaceName = createValidName(graphInterfaceLabel);
+                                string const upstreamParentPath = createValidName(upstreamNode->getParent()->getNamePath());
+                                const string graphInterfaceLabel = input->getInterfaceName();
+                                const string graphInterfaceName  = upstreamParentPath + "_" + graphInterfaceLabel;
+
+                                if (!upstreamParentPath.empty())
+                                {
+                                    if (subGraphs.count(upstreamParentPath))
+                                    {
+                                        subGraphs[upstreamParentPath].insert(graphInterfaceName);
+                                    }
+                                    else
+                                    {
+                                        StringSet newSet;
+                                        newSet.insert(graphInterfaceName);
+                                        subGraphs[downstreamGraphId] = newSet;
+                                    }
+                                }
+
                                 const string interiorNodeLabel = upstreamElem->getNamePath();
                                 const string interiorNodeName = createValidName(interiorNodeLabel) + "[" + interiorNodeLabel + "]";
-                                currentGraphString += "    ";
-                                currentGraphString += graphInterfaceName + "([" + graphInterfaceLabel + "])";
-                                currentGraphString += " ==." + input->getName() + "==> ";
-                                currentGraphString += interiorNodeName;
-                                currentGraphString += "\n";
+
+                                currentGraphString += "    " + graphInterfaceName + "([" + graphInterfaceLabel + "])";
+                                currentGraphString += " ==." + input->getName() + "==> " + interiorNodeName + "\n";
                                 currentGraphString += "    style " + graphInterfaceName + " fill:#0bb,color:#111\n";
                             }
                         }
@@ -719,8 +773,18 @@ string GraphElement::asMermaid(const string& rootName, const std::vector<OutputP
         }
     }
 
-    currentGraphString += "  end\n";
+    //currentGraphString += "  end\n";
     
+    for (auto subGraph : subGraphs)
+    {
+        currentGraphString += "  subgraph " + subGraph.first + "\n";
+        for (auto item : subGraph.second)
+        {
+            currentGraphString += "    " + item + "\n";
+        }
+        currentGraphString += "  end\n";
+    }
+
     string outputString = "```mermaid\n";
     outputString += "graph TD;\n";
     outputString += currentGraphString;
