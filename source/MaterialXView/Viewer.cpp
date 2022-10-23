@@ -1311,11 +1311,12 @@ void Viewer::loadDocument(const mx::FilePath& filename, mx::DocumentPtr librarie
             }
        
             // For document assignment we must go in order of assignments for looks
-            // with later assignments supersceding earlier ones.
+            // with later assignments superceding earlier ones.
             for (mx::LookPtr look : doc->getLooks())
             {
                 for (mx::MaterialAssignPtr matAssign : look->getMaterialAssigns())
                 {
+                    const std::string& activeGeom = matAssign->getActiveGeom();
                     for (mx::MeshPartitionPtr part : _geometryList)
                     {
                         std::string geom = part->getName();
@@ -1323,7 +1324,7 @@ void Viewer::loadDocument(const mx::FilePath& filename, mx::DocumentPtr librarie
                         {
                             geom += mx::ARRAY_PREFERRED_SEPARATOR + id;
                         }
-                        if (mx::geomStringsMatch(matAssign->getActiveGeom(), geom, true))
+                        if (mx::geomStringsMatch(activeGeom, geom, true))
                         {
                             for (MaterialPtr mat : newMaterials)
                             {
