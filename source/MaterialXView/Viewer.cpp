@@ -4,9 +4,6 @@
 #include <MaterialXRenderGlsl/TextureBaker.h>
 
 #include <MaterialXRender/CgltfLoader.h>
-#if MATERIALX_BUILD_GLTF
-#include <MaterialXglTF/CgltfMaterialHandler.h>
-#endif
 #include <MaterialXRender/Harmonics.h>
 #include <MaterialXRender/OiioImageLoader.h>
 #include <MaterialXRender/StbImageLoader.h>
@@ -604,51 +601,11 @@ void Viewer::createLoadMaterialsInterface(Widget* parent, const std::string& lab
     materialButton->set_callback([this]()
     {
         m_process_events = false;
-        std::string filename;       
-#if defined(MATERIALX_BUILD_GLTF)
-        filename = ng::file_dialog({ { "mtlx", "MaterialX" }, { "gltf", "glTF" } }, false);
-#else
-        filename = ng::file_dialog({ { "mtlx", "MaterialX" } }, false);
-#endif
+        std::string filename = ng::file_dialog({ { "mtlx", "MaterialX" } }, false);
         if (!filename.empty())
         {
-            mx::FilePath filePath(filename);
-#if defined(MATERIALX_BUILD_GLTF)
-            if (filePath.getExtension() == "gltf")
-            {
-                mx::MaterialHandlerPtr gltfMTLXLoader = mx::CgltfMaterialHandler::create();
-                gltfMTLXLoader->setDefinitions(_stdLib);
-                gltfMTLXLoader->setGenerateAssignments(true);
-                bool loadedMaterial = gltfMTLXLoader->load(filename);
-                mx::DocumentPtr materials = loadedMaterial ? gltfMTLXLoader->getMaterials() : nullptr;
-                if (materials)
-                {
-                    mx::XmlWriteOptions writeOptions;
-                    writeOptions.elementPredicate = [](mx::ConstElementPtr elem)
-                    {
-                        if (elem->hasSourceUri())
-                        {
-                            return false;
-                        }
-                        return true;
-                    };
-
-                    mx::FilePath outputPath = filePath.asString() + ".mtlx";
-                    mx::writeToXmlFile(materials, outputPath, &writeOptions);
-                    gltfMTLXLoader->save(outputPath);
-
-                    // Load generated materials.
-                    // TODO: Bit clumsy. Need to change to accept an existing document.
-                    _materialFilename = outputPath;
-                    loadDocument(_materialFilename, _stdLib);
-                }
-            }
-            else
-#endif
-            {
-                _materialFilename = filename;
-                loadDocument(_materialFilename, _stdLib);
-            }
+            _materialFilename = filename;
+            loadDocument(_materialFilename, _stdLib);
         }
         m_process_events = true;
     });
@@ -1353,12 +1310,13 @@ void Viewer::loadDocument(const mx::FilePath& filename, mx::DocumentPtr librarie
                 }
             }
        
-            // For document assignment we must go in order of assignments for looks
-            // with later assignments supersceding earlier ones.
+            // Apply material assignments in the order in which they are declared within the document,
+            // with later assignments superseding earlier ones.
             for (mx::LookPtr look : doc->getLooks())
             {
                 for (mx::MaterialAssignPtr matAssign : look->getMaterialAssigns())
                 {
+                    const std::string& activeGeom = matAssign->getActiveGeom();
                     for (mx::MeshPartitionPtr part : _geometryList)
                     {
                         std::string geom = part->getName();
@@ -1366,7 +1324,7 @@ void Viewer::loadDocument(const mx::FilePath& filename, mx::DocumentPtr librarie
                         {
                             geom += mx::ARRAY_PREFERRED_SEPARATOR + id;
                         }
-                        if (mx::geomStringsMatch(matAssign->getActiveGeom(), geom, true))
+                        if (mx::geomStringsMatch(activeGeom, geom, true))
                         {
                             for (MaterialPtr mat : newMaterials)
                             {
