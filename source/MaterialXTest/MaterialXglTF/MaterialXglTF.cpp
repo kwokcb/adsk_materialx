@@ -1,7 +1,7 @@
 
 #include <MaterialXTest/Catch/catch.hpp>
 
-#include <MaterialXglTF/CgltfMaterialHandler.h>
+#include <MaterialXglTF/GltfMaterialHandler.h>
 #include <MaterialXFormat/Environ.h>
 #include <MaterialXFormat/Util.h>
 #include <MaterialXFormat/XmlIo.h>
@@ -16,7 +16,7 @@ namespace mx = MaterialX;
 mx::DocumentPtr glTF2Mtlx(const mx::FilePath& filename, mx::DocumentPtr definitions, 
                           bool createAssignments, bool fullDefinition)
 {
-    mx::MaterialHandlerPtr gltfMTLXLoader = mx::CgltfMaterialHandler::create();
+    mx::MaterialHandlerPtr gltfMTLXLoader = mx::GltfMaterialHandler::create();
     gltfMTLXLoader->setDefinitions(definitions);
     gltfMTLXLoader->setGenerateAssignments(createAssignments);
     gltfMTLXLoader->setGenerateFullDefinitions(fullDefinition);
@@ -28,7 +28,7 @@ mx::DocumentPtr glTF2Mtlx(const mx::FilePath& filename, mx::DocumentPtr definiti
 // MaterialX to cgTF conversion
 bool mtlx2glTF(const mx::FilePath& filename, mx::DocumentPtr materials)
 {
-    mx::MaterialHandlerPtr gltfMTLXLoader = mx::CgltfMaterialHandler::create();
+    mx::MaterialHandlerPtr gltfMTLXLoader = mx::GltfMaterialHandler::create();
     gltfMTLXLoader->setMaterials(materials);
     return gltfMTLXLoader->save(filename);
 }

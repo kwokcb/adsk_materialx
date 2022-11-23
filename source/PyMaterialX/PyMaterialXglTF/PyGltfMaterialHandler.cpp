@@ -1,7 +1,7 @@
 
 #include <PyMaterialX/PyMaterialX.h>
 
-#include <MaterialXglTF/CgltfMaterialHandler.h>
+#include <MaterialXglTF/GltfMaterialHandler.h>
 
 namespace py = pybind11;
 namespace mx = MaterialX;
@@ -38,7 +38,7 @@ class PyMaterialHandler: public mx::MaterialHandler
 };
 
 
-void bindPyCgltfMaterialHandler(py::module& mod)
+void bindPyGltfMaterialHandler(py::module& mod)
 {
     py::class_<mx::MaterialHandler, PyMaterialHandler, mx::MaterialHandlerPtr>(mod, "MaterialHandler")
         .def(py::init<>())
@@ -54,9 +54,9 @@ void bindPyCgltfMaterialHandler(py::module& mod)
         .def("setGenerateFullDefinitions", &mx::MaterialHandler::setGenerateFullDefinitions)
         .def("getGenerateFullDefinitions", &mx::MaterialHandler::getGenerateFullDefinitions);
 
-    py::class_<mx::CgltfMaterialHandler, mx::MaterialHandler, mx::CgltfMaterialHandlerPtr>(mod, "CgltfMaterialHandler")
-        .def_static("create", &mx::CgltfMaterialHandler::create)
+    py::class_<mx::GltfMaterialHandler, mx::MaterialHandler, mx::GltfMaterialHandlerPtr>(mod, "GltfMaterialHandler")
+        .def_static("create", &mx::GltfMaterialHandler::create)
         .def(py::init<>())
-        .def("load", &mx::CgltfMaterialHandler::load)
-        .def("save", &mx::CgltfMaterialHandler::save);
+        .def("load", &mx::GltfMaterialHandler::load)
+        .def("save", &mx::GltfMaterialHandler::save);
 }

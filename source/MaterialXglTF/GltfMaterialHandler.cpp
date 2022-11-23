@@ -4,7 +4,12 @@
 #include <MaterialXCore/Library.h>
 #include <MaterialXFormat/XmlIo.h>
 #include <MaterialXFormat/Util.h>
-#include <MaterialXglTF/CgltfMaterialHandler.h>
+#include <MaterialXGenShader/ShaderTranslator.h>
+#include <MaterialXglTF/GltfMaterialHandler.h>
+//#include <MaterialXRender/Image.h>
+//#include <MaterialXRender/ImageHandler.h>
+//#include <MaterialXRender/StbImageLoader.h>
+//#include <MaterialXRenderGlsl/TextureBaker.h>
 
 #if defined(__GNUC__)
     #pragma GCC diagnostic push
@@ -21,10 +26,11 @@
     #pragma warning(disable : 4996)
 #endif
 
-//#define CGLTF_IMPLEMENTATION -- don't set to avoid duplicate symbols
+#undef CGLTF_IMPLEMENTATION
+//#define CGLTF_IMPLEMENTATION //-- don't set to avoid duplicate symbols
 #include <MaterialXRender/External/Cgltf/cgltf.h>
 #define CGLTF_WRITE_IMPLEMENTATION
-#include <MaterialXRender/External/Cgltf/cgltf_write.h>
+#include <MaterialXglTF/External/Cgltf/cgltf_write.h>
 
 #if defined(_MSC_VER)
     #pragma warning(pop)
@@ -87,6 +93,102 @@ void initialize_cgtlf_texture(cgltf_texture& texture, const string& name, const 
     texture.image->name = const_cast<char*>((new string(name))->c_str());
     texture.name = texture.image->name;
     texture.image->uri = const_cast<char*>((new string(uri))->c_str());
+}
+
+void writeColor3Input(const NodePtr pbrNode, const string& inputName, 
+                        cgltf_texture_view& texture_view, 
+                        cgltf_float* write_value,
+                        cgltf_bool& hasFlag,
+                        std::vector<cgltf_texture>& textureList,
+                        std::vector<cgltf_image>& imageList, size_t& imageIndex)
+{
+    string filename;
+
+    NodePtr imageNode = pbrNode->getConnectedNode(inputName);
+    if (imageNode)
+    {
+        InputPtr fileInput = imageNode->getInput(Implementation::FILE_ATTRIBUTE);
+        filename = fileInput && fileInput->getAttribute(TypedElement::TYPE_ATTRIBUTE) == FILENAME_TYPE_STRING ?
+            fileInput->getValueString() : EMPTY_STRING;
+        if (filename.empty())
+        {
+            imageNode = nullptr;
+        }
+    }
+    if (imageNode)
+    {
+        cgltf_texture* texture = &(textureList[imageIndex]);
+        texture_view.texture = texture;
+        // Fix this to create a valid name...
+        initialize_cgtlf_texture(*texture, imageNode->getNamePath(), filename,
+                                 &(imageList[imageIndex]));
+
+        write_value[0] = 1.0f;
+        write_value[1] = 1.0f;
+        write_value[2] = 1.0f;
+
+        imageIndex++;
+        hasFlag = true;
+    }
+    else
+    {
+        ValuePtr value = pbrNode->getInputValue(inputName);
+        if (value)
+        {
+            Color3 color = value->asA<Color3>();
+            write_value[0] = color[0];
+            write_value[1] = color[1];
+            write_value[2] = color[2];
+
+            hasFlag = true;
+        }
+    }
+}
+
+void writeFloatInput(const NodePtr pbrNode, const string& inputName, 
+                        cgltf_texture_view& texture_view, 
+                        float* write_value,
+                        cgltf_bool& hasFlag,
+                        std::vector<cgltf_texture>& textureList,
+                        std::vector<cgltf_image>& imageList, size_t& imageIndex)
+{
+    string filename;
+
+    NodePtr imageNode = pbrNode->getConnectedNode(inputName);
+    if (imageNode)
+    {
+        InputPtr fileInput = imageNode->getInput(Implementation::FILE_ATTRIBUTE);
+        filename = fileInput && fileInput->getAttribute(TypedElement::TYPE_ATTRIBUTE) == FILENAME_TYPE_STRING ?
+            fileInput->getValueString() : EMPTY_STRING;
+        if (filename.empty())
+        {
+            imageNode = nullptr;
+        }
+    }
+    if (imageNode)
+    {
+        cgltf_texture* texture = &(textureList[imageIndex]);
+        texture_view.texture = texture;
+        // Fix this to create a valid name...
+        initialize_cgtlf_texture(*texture, imageNode->getNamePath(), filename,
+                                 &(imageList[imageIndex]));
+
+        *write_value = 1.0f;
+        std::cout << ">>> Write input: " << inputName << " texture: " << filename << std::endl;
+
+        imageIndex++;
+        hasFlag = true;
+    }
+    else
+    {
+        ValuePtr value = pbrNode->getInputValue(inputName);
+        if (value)
+        {
+            *write_value = value->asA<float>();
+            std::cout << ">>> Write input: " << inputName << " value: " << value->getValueString() << std::endl;
+            hasFlag = true;
+        }
+    }
 }
 
 void computeMeshMaterials(GLTFMaterialMeshList& materialMeshList, StringSet& materialCPVList, void* cnodeIn, FilePath& path, unsigned int nodeCount,
@@ -168,7 +270,55 @@ void computeMeshMaterials(GLTFMaterialMeshList& materialMeshList, StringSet& mat
 
 }
 
-bool CgltfMaterialHandler::save(const FilePath& filePath)
+void GltfMaterialHandler::translateShaders(DocumentPtr doc)
+{
+    if (!doc)
+    {
+        return;
+    }
+
+    // Perform translation to MaterialX gltf_pbr if it exists.
+    // This basically expands ShaderTranslator::translateAllMaterials()
+    // so that documents with mixed shader types can be handled correctly.
+    //
+    const string TARGET_GLTF = "gltf_pbr";
+    ShaderTranslatorPtr translator = ShaderTranslator::create();
+    vector<TypedElementPtr> materialNodes;
+    std::unordered_set<ElementPtr> shaderOutputs;
+    findRenderableMaterialNodes(doc, materialNodes, false, shaderOutputs);    
+    for (auto elem : materialNodes)
+    {
+        NodePtr materialNode = elem->asA<Node>();
+        if (!materialNode)
+        {
+            continue;
+        }
+        for (NodePtr shaderNode : getShaderNodes(materialNode))
+        {
+            try
+            {
+                const string& sourceCategory = shaderNode->getCategory();
+                if (sourceCategory == TARGET_GLTF)
+                {
+                    continue;
+                }
+                string translateNodeString = sourceCategory + "_to_" + TARGET_GLTF;
+                vector<NodeDefPtr> matchingNodeDefs = doc->getMatchingNodeDefs(translateNodeString);
+                if (matchingNodeDefs.empty())
+                {
+                    continue;
+                }
+                translator->translateShader(shaderNode, TARGET_GLTF);
+            }
+            catch (std::exception& /*e*/)
+            {
+                //std::cout << "- Error in shader translation: " << e.what() << std::endl;
+            }
+        }
+    }
+}
+
+bool GltfMaterialHandler::save(const FilePath& filePath)
 {
     if (!_materials)
     {
@@ -241,29 +391,35 @@ bool CgltfMaterialHandler::save(const FilePath& filePath)
 
     // Scan for PBR shader nodes
     const string PBR_CATEGORY_STRING("gltf_pbr");
+    const string UNLIT_CATEGORY_STRING("surface_unlit");
     std::set<NodePtr> pbrNodes;
+    std::set<NodePtr> unlitNodes;
     for (const NodePtr& material : _materials->getMaterialNodes())
     {
         vector<NodePtr> shaderNodes = getShaderNodes(material);
         for (const NodePtr& shaderNode : shaderNodes)
         {
-            if (shaderNode->getCategory() == PBR_CATEGORY_STRING &&
-                pbrNodes.find(shaderNode) == pbrNodes.end())
+            const string& category = shaderNode->getCategory();
+            if (category == PBR_CATEGORY_STRING && pbrNodes.find(shaderNode) == pbrNodes.end())
             {
                 pbrNodes.insert(shaderNode);
             }
+            else if (category == UNLIT_CATEGORY_STRING && unlitNodes.find(shaderNode) == unlitNodes.end())
+            {
+                unlitNodes.insert(shaderNode);
+            }
+            // TODO: Handle converson from other shading models to gltf pbr
         }
     }
 
-    cgltf_size materials_count = pbrNodes.size();
+    cgltf_size materials_count = pbrNodes.size() + unlitNodes.size();
     if (!materials_count)
     {
         return false;
     }
-
     // Write materials
     /*
-    * typedef struct cgltf_material
+    typedef struct cgltf_material
     {
 	    char* name;
 	    cgltf_bool has_pbr_metallic_roughness;
@@ -271,27 +427,29 @@ bool CgltfMaterialHandler::save(const FilePath& filePath)
 	    cgltf_bool has_clearcoat;
 	    cgltf_bool has_transmission;
 	    cgltf_bool has_volume;
-	    cgltf_bool has_ior;
+	    cgltf_bool has_ior; 
 	    cgltf_bool has_specular;
 	    cgltf_bool has_sheen;
 	    cgltf_bool has_emissive_strength;
-	    cgltf_pbr_metallic_roughness pbr_metallic_roughness;
+	    cgltf_bool has_iridescence;
+	    cgltf_pbr_metallic_roughness pbr_metallic_roughness; // unmerged todo
 	    cgltf_pbr_specular_glossiness pbr_specular_glossiness;
-	    cgltf_clearcoat clearcoat;
-	    cgltf_ior ior;
-	    cgltf_specular specular;
-	    cgltf_sheen sheen;
-	    cgltf_transmission transmission;
-	    cgltf_volume volume;
-	    cgltf_emissive_strength emissive_strength;
-	    cgltf_texture_view normal_texture;
+	    cgltf_clearcoat clearcoat; // todo
+	    cgltf_ior ior; // todo
+	    cgltf_specular specular; // DONE
+	    cgltf_sheen sheen; // DONE
+	    cgltf_transmission transmission; // todo
+	    cgltf_volume volume; // todo
+	    cgltf_emissive_strength emissive_strength; // DONE
+	    cgltf_iridescence iridescence; // PARTIAL
+	    cgltf_texture_view normal_texture; // DONE
 	    cgltf_texture_view occlusion_texture;
 	    cgltf_texture_view emissive_texture;
 	    cgltf_float emissive_factor[3];
 	    cgltf_alpha_mode alpha_mode;
 	    cgltf_float alpha_cutoff;
 	    cgltf_bool double_sided;
-	    cgltf_bool unlit;
+	    cgltf_bool unlit; // done
 	    cgltf_extras extras;
 	    cgltf_size extensions_count;
 	    cgltf_extension* extensions;
@@ -303,11 +461,62 @@ bool CgltfMaterialHandler::save(const FilePath& filePath)
 
     // Set of image nodes.
     // TODO: Fix to be dynamic
-    cgltf_texture textureList[1024];
-    cgltf_image imageList[1024];
+    std::vector<cgltf_texture> textureList;
+    textureList.reserve(64);
+    std::vector<cgltf_image> imageList;
+    imageList.reserve(64);
 
     size_t material_idx = 0;
     size_t imageIndex = 0;
+
+    // Handle unlit nodes
+    for (const NodePtr& unlitNode : unlitNodes)
+    {
+        cgltf_material* material = &(materials[material_idx]);
+        std::memset(material, 0, sizeof(cgltf_material));
+        material->unlit = true;
+	    material->has_pbr_metallic_roughness = false;
+	    material->has_pbr_specular_glossiness = false;
+	    material->has_clearcoat = false;
+	    material->has_transmission = false;
+	    material->has_volume = false;
+	    material->has_ior = false;
+	    material->has_specular = false;
+	    material->has_sheen = false;
+	    material->has_emissive_strength = false;
+	    material->extensions_count = 0;
+	    material->extensions = nullptr;
+        material->emissive_texture.texture = nullptr;
+        material->normal_texture.texture = nullptr;
+        material->occlusion_texture.texture = nullptr;
+
+        string* name = new string(unlitNode->getNamePath());
+        material->name = const_cast<char*>(name->c_str());
+        
+        material->has_pbr_metallic_roughness = true;
+        cgltf_pbr_metallic_roughness& roughness = material->pbr_metallic_roughness;
+        initialize_cgltf_texture_view(roughness.base_color_texture);
+
+        // Handle base color
+        ValuePtr value = unlitNode->getInputValue("emission_color");
+        if (value)
+        {
+            Color3 color = value->asA<Color3>();
+            roughness.base_color_factor[0] = color[0];
+            roughness.base_color_factor[1] = color[1];
+            roughness.base_color_factor[2] = color[2];
+        }
+
+        value = unlitNode->getInputValue("opacity");
+        if (value)
+        {
+            roughness.base_color_factor[3] = value->asA<float>();
+        }
+
+        material_idx++;
+    }
+
+    // Handle gltf pbr nodes
     for (const NodePtr& pbrNode : pbrNodes)
     {
         cgltf_material* material = &(materials[material_idx]);
@@ -334,8 +543,9 @@ bool CgltfMaterialHandler::save(const FilePath& filePath)
         cgltf_pbr_metallic_roughness& roughness = material->pbr_metallic_roughness;
         initialize_cgltf_texture_view(roughness.base_color_texture);
 
-        // Handle base color
         string filename;
+
+        // Handle base color
         NodePtr imageNode = pbrNode->getConnectedNode("base_color");
         if (imageNode)
         {
@@ -472,7 +682,14 @@ bool CgltfMaterialHandler::save(const FilePath& filePath)
                     if (roughnessInputs[e])
                     {
                         value = pbrInput->getValue();
-                        *(roughnessInputs[e]) = value->asA<float>();
+                        if (value)
+                        {
+                            *(roughnessInputs[e]) = value->asA<float>();
+                        }
+                        else
+                        {
+                            *(roughnessInputs[e]) = 1.0f;
+                        }
                     }
                 }
             }
@@ -508,117 +725,113 @@ bool CgltfMaterialHandler::save(const FilePath& filePath)
             imageIndex++;
         }
 
-        // Handle sheen
+        // Handle transmission
+        cgltf_transmission& transmission = material->transmission;
+        writeFloatInput(pbrNode, "transmission",
+            transmission.transmission_texture, &(transmission.transmission_factor),
+            material->has_transmission, textureList, imageList, imageIndex);
+
+        // Handle specular color
+        cgltf_specular& specular = material->specular;
+        writeColor3Input(pbrNode, "specular_color",
+            specular.specular_color_texture, &(specular.specular_color_factor[0]), material->has_specular,
+            textureList, imageList, imageIndex);
+        // - Handle specular
+        writeFloatInput(pbrNode, "specular",
+            specular.specular_texture, &(specular.specular_factor), material->has_specular, 
+            textureList, imageList, imageIndex);
+
+        // Handle ior
+        value = pbrNode->getInputValue("ior");
+        if (value)
+        {
+            material->ior.ior = value->asA<float>();
+            material->has_ior = true;
+        }
+
+        // Handle alphA mode, cutoff
+        cgltf_alpha_mode& alpha_mode = material->alpha_mode;
+        value = pbrNode->getInputValue("alpha_mode");
+        if (value)
+        {
+            alpha_mode = static_cast<cgltf_alpha_mode>(value->asA<int>());
+        }
+        value = pbrNode->getInputValue("alpha_cutoff");
+        if (value)
+        {
+            material->alpha_cutoff = value->asA<float>();
+        }
+
+        // Handle iridescence (partial)
+        cgltf_iridescence& iridescence = material->iridescence;
+        writeFloatInput(pbrNode, "iridescence",
+            iridescence.iridescence_texture, &(iridescence.iridescence_factor),
+            material->has_iridescence, textureList, imageList, imageIndex);
+
+        // Handle sheen color
         cgltf_sheen& sheen = material->sheen;
+        writeColor3Input(pbrNode, "sheen_color",
+            sheen.sheen_color_texture, &(sheen.sheen_color_factor[0]),
+            material->has_sheen, textureList, imageList, imageIndex);
+        // - Handle sheen roughness
+        writeFloatInput(pbrNode, "sheen_roughness",
+            sheen.sheen_roughness_texture, &(sheen.sheen_roughness_factor),
+            material->has_sheen, textureList, imageList, imageIndex);
+
+        // Handle clearcloat
+        cgltf_clearcoat& clearcoat = material->clearcoat;
+        writeFloatInput(pbrNode, "clearcoat",
+            clearcoat.clearcoat_texture, &(clearcoat.clearcoat_factor),
+            material->has_clearcoat, textureList, imageList, imageIndex);
+        writeFloatInput(pbrNode, "clearcoat_roughness",
+            clearcoat.clearcoat_roughness_texture, &(clearcoat.clearcoat_roughness_factor),
+            material->has_clearcoat, textureList, imageList, imageIndex);
+
+        // Handle clearcoat normal
         filename = EMPTY_STRING;
-        imageNode = pbrNode->getConnectedNode("sheen_color");
-        initialize_cgltf_texture_view(sheen.sheen_color_texture);
+        imageNode = pbrNode->getConnectedNode("clearcoat_normal");
+        initialize_cgltf_texture_view(material->normal_texture);
         if (imageNode)
         {
-            InputPtr fileInput = imageNode->getInput(Implementation::FILE_ATTRIBUTE);
-            filename = fileInput && fileInput->getAttribute(TypedElement::TYPE_ATTRIBUTE) == FILENAME_TYPE_STRING ?
-                fileInput->getValueString() : EMPTY_STRING;
-            if (filename.empty())
-                imageNode = nullptr;
+            // Read past normalmap node
+            if (imageNode->getCategory() == "normalmap")
+            {
+                imageNode = imageNode->getConnectedNode(IN_STRING);
+            }
+            if (imageNode)
+            {
+                InputPtr fileInput = imageNode->getInput(Implementation::FILE_ATTRIBUTE);
+                filename = fileInput && fileInput->getAttribute(TypedElement::TYPE_ATTRIBUTE) == FILENAME_TYPE_STRING ?
+                    fileInput->getValueString() : EMPTY_STRING;
+                if (filename.empty())
+                    imageNode = nullptr;
+            }
         }
         if (imageNode)
         {
             cgltf_texture* texture = &(textureList[imageIndex]);
-            sheen.sheen_color_texture.texture = texture;
+            clearcoat.clearcoat_normal_texture.texture = texture;
             initialize_cgtlf_texture(*texture, imageNode->getNamePath(), filename,
                 &(imageList[imageIndex]));            
 
-            sheen.sheen_color_factor[0] = 1.0;
-            sheen.sheen_color_factor[1] = 1.0;
-            sheen.sheen_color_factor[2] = 1.0;
-
             imageIndex++;
-        }
-        else
-        {
-            value = pbrNode->getInputValue("sheen_color");
-            if (value)
-            {
-                Color3 color = value->asA<Color3>();
-                sheen.sheen_color_factor[0] = color[0];
-                sheen.sheen_color_factor[1] = color[1];
-                sheen.sheen_color_factor[2] = color[2];
-            }
-        }        
-
-        filename = EMPTY_STRING;
-        imageNode = pbrNode->getConnectedNode("sheen_roughness");
-        initialize_cgltf_texture_view(sheen.sheen_roughness_texture);
-        if (imageNode)
-        {
-            InputPtr fileInput = imageNode->getInput(Implementation::FILE_ATTRIBUTE);
-            filename = fileInput && fileInput->getAttribute(TypedElement::TYPE_ATTRIBUTE) == FILENAME_TYPE_STRING ?
-                fileInput->getValueString() : EMPTY_STRING;
-            if (filename.empty())
-                imageNode = nullptr;
-        }
-        if (imageNode)
-        {
-            cgltf_texture* texture = &(textureList[imageIndex]);
-            sheen.sheen_roughness_texture.texture = texture;
-            initialize_cgtlf_texture(*texture, imageNode->getNamePath(), filename,
-                &(imageList[imageIndex]));            
-
-            sheen.sheen_roughness_factor = 1.0;
-
-            imageIndex++;
-        }
-        else
-        {
-            value = pbrNode->getInputValue("sheen_roughness");
-            if (value)
-            {
-                sheen.sheen_roughness_factor = value->asA<float>();
-            }
+            material->has_clearcoat = true;
         }
 
         // Handle emissive
-        filename = EMPTY_STRING;
-        imageNode = pbrNode->getConnectedNode("emissive");
-        initialize_cgltf_texture_view(material->emissive_texture);
-        if (imageNode)
-        {
-            InputPtr fileInput = imageNode->getInput(Implementation::FILE_ATTRIBUTE);
-            filename = fileInput && fileInput->getAttribute(TypedElement::TYPE_ATTRIBUTE) == FILENAME_TYPE_STRING ?
-                fileInput->getValueString() : EMPTY_STRING;
-            if (filename.empty())
-                imageNode = nullptr;
-        }
-        if (imageNode)
-        {
-            cgltf_texture* texture = &(textureList[imageIndex]);
-            material->emissive_texture.texture = texture;
-            initialize_cgtlf_texture(*texture, imageNode->getNamePath(), filename,
-                &(imageList[imageIndex]));            
-
-            material->emissive_factor[0] = 1.0;
-            material->emissive_factor[1] = 1.0;
-            material->emissive_factor[2] = 1.0;
-
-            imageIndex++;
-        }
-        else
-        {
-            value = pbrNode->getInputValue("emissive");
-            if (value)
-            {
-                Color3 color = value->asA<Color3>();
-                material->emissive_factor[0] = color[0];
-                material->emissive_factor[1] = color[1];
-                material->emissive_factor[2] = color[2];
-            }
-        }        
-        
+        cgltf_bool dummy = false;
+        writeColor3Input(pbrNode, "emissive",
+            material->emissive_texture, &(material->emissive_factor[0]),
+            dummy, textureList, imageList, imageIndex);
+        // - Handle emissive strength
         value = pbrNode->getInputValue("emissive_strength");
         if (value)
         {
             material->emissive_strength.emissive_strength = value->asA<float>();
+            material->has_emissive_strength = true;
         }
+
+        // TODO: Handle thickness, attenuation_distance / color
 
         material_idx++;
     }
@@ -638,7 +851,7 @@ bool CgltfMaterialHandler::save(const FilePath& filePath)
     return true;
 }
 
-bool CgltfMaterialHandler::load(const FilePath& filePath)
+bool GltfMaterialHandler::load(const FilePath& filePath)
 {
     const std::string input_filename = filePath.asString();
     const std::string ext = stringToLower(filePath.getExtension());
@@ -672,7 +885,7 @@ bool CgltfMaterialHandler::load(const FilePath& filePath)
 }
 
 // Utilities
-NodePtr CgltfMaterialHandler::createColoredTexture(DocumentPtr& doc, const std::string & nodeName, const std::string& fileName,
+NodePtr GltfMaterialHandler::createColoredTexture(DocumentPtr& doc, const std::string & nodeName, const std::string& fileName,
                                                   const Color4& color, const std::string & colorspace)
 {
     std::string newTextureName = doc->createValidChildName(nodeName);
@@ -681,7 +894,10 @@ NodePtr CgltfMaterialHandler::createColoredTexture(DocumentPtr& doc, const std::
     {
         return nullptr;
     }
-    newTexture->setAttribute(InterfaceElement::NODE_DEF_ATTRIBUTE, "ND_gltf_colorimage" );
+    if (_generateNodeDefs)
+    {
+        newTexture->setAttribute(InterfaceElement::NODE_DEF_ATTRIBUTE, "ND_gltf_colorimage");
+    }
     if (_generateFullDefinitions)
     {
         newTexture->addInputsFromNodeDef();
@@ -702,7 +918,7 @@ NodePtr CgltfMaterialHandler::createColoredTexture(DocumentPtr& doc, const std::
 }
 
 
-NodePtr CgltfMaterialHandler::createTexture(DocumentPtr& doc, const std::string & nodeName, const std::string& fileName,
+NodePtr GltfMaterialHandler::createTexture(DocumentPtr& doc, const std::string & nodeName, const std::string& fileName,
                                            const std::string& textureType, const std::string & colorspace, 
                                            const std::string& nodeType)
 {
@@ -712,7 +928,10 @@ NodePtr CgltfMaterialHandler::createTexture(DocumentPtr& doc, const std::string 
     {
         return nullptr;
     }
-    //newTexture->setAttribute(InterfaceElement::NODE_DEF_ATTRIBUTE, "ND_image_" + textureType);
+    if (_generateNodeDefs)
+    {
+        newTexture->setAttribute(InterfaceElement::NODE_DEF_ATTRIBUTE, "ND_image_" + textureType);
+    }
     if (_generateFullDefinitions)
     {
         newTexture->addInputsFromNodeDef();
@@ -742,9 +961,10 @@ void setImageProperties(NodePtr image, const cgltf_texture_view* textureView)
     }
 
     // Handle uvset index
-    InputPtr uvIndexInput = image->addInputFromNodeDef("uvindex");
-    if (uvIndexInput)
+    InputPtr uvIndexInput = nullptr;
+    if (textureView->texcoord != 0)
     {
+        uvIndexInput = image->addInputFromNodeDef("uvindex");
         uvIndexInput->setValue<int>(textureView->texcoord);
     }
 
@@ -842,48 +1062,44 @@ void setImageProperties(NodePtr image, const cgltf_texture_view* textureView)
     }
 }
 
-void CgltfMaterialHandler::setNormalMapInput(DocumentPtr materials, NodePtr shaderNode, const std::string& inputName,
+void GltfMaterialHandler::setNormalMapInput(DocumentPtr materials, NodePtr shaderNode, const std::string& inputName,
     const void* textureViewIn, const std::string& inputImageNodeName)
 {
-    const cgltf_texture_view* textureView = static_cast<const cgltf_texture_view*>(textureViewIn);
+    const cgltf_texture_view* textureView = (const cgltf_texture_view*)(textureViewIn);
 
-    InputPtr normalInput = shaderNode->addInputFromNodeDef(inputName);
-    if (normalInput)
+    cgltf_texture* texture = textureView ? textureView->texture : nullptr;
+    if (texture && texture->image)
     {
-        cgltf_texture* texture = textureView ? textureView->texture : nullptr;
-        if (texture && texture->image)
+        std::string imageNodeName = texture->image->name ? texture->image->name :
+            inputImageNodeName;
+        imageNodeName = _materials->createValidChildName(imageNodeName);
+        std::string uri = texture->image->uri ? texture->image->uri : SPACE_STRING;
+        // Note: we create a gltf_normalmap here
+        NodePtr newTexture = createTexture(_materials, imageNodeName, uri,
+                                            VEC3_STRING, EMPTY_STRING, "gltf_normalmap");
+        if (newTexture)
         {
-            std::string imageNodeName = texture->image->name ? texture->image->name :
-                inputImageNodeName;
-            imageNodeName = _materials->createValidChildName(imageNodeName);
-            std::string uri = texture->image->uri ? texture->image->uri : SPACE_STRING;
-            // Note: we create a gltf_normalmap here
-            NodePtr newTexture = createTexture(_materials, imageNodeName, uri,
-                                               VEC3_STRING, EMPTY_STRING, "gltf_normalmap");
-            if (newTexture)
-            {
-                setImageProperties(newTexture, textureView);
+            setImageProperties(newTexture, textureView);
 
+            InputPtr normalInput = shaderNode->addInputFromNodeDef(inputName);
+            if (normalInput)
+            {
                 normalInput->setAttribute(PortElement::NODE_NAME_ATTRIBUTE, newTexture->getName());
-                normalInput->removeAttribute(AttributeDef::VALUE_ATTRIBUTE);               
+                normalInput->removeAttribute(AttributeDef::VALUE_ATTRIBUTE);
             }
         }
     }
 }
 
-void CgltfMaterialHandler::setColorInput(DocumentPtr materials, NodePtr shaderNode, const std::string& colorInputName, 
+void GltfMaterialHandler::setColorInput(DocumentPtr materials, NodePtr shaderNode, const std::string& colorInputName, 
                                        const Color3& color, float alpha, const std::string& alphaInputName, 
                                        const void* textureViewIn,
                                        const std::string& inputImageNodeName)
 {
     const cgltf_texture_view* textureView = static_cast<const cgltf_texture_view*>(textureViewIn);
 
-    InputPtr colorInput = colorInputName.size() ? shaderNode->addInputFromNodeDef(colorInputName) : nullptr;    
-    InputPtr alphaInput = alphaInputName.size() ? shaderNode->addInputFromNodeDef(alphaInputName) : nullptr;
-    if (!colorInput)
-    {
-        return;
-    } 
+    InputPtr colorInput = nullptr; 
+    InputPtr alphaInput = nullptr; 
 
     // Handle textured color / alpha input
     //
@@ -901,8 +1117,12 @@ void CgltfMaterialHandler::setColorInput(DocumentPtr materials, NodePtr shaderNo
             {
                 setImageProperties(newTexture, textureView);
             }
-            colorInput->setAttribute(PortElement::NODE_NAME_ATTRIBUTE, newTexture->getName());
-            colorInput->removeAttribute(AttributeDef::VALUE_ATTRIBUTE);
+            if (!colorInput)
+            {
+                colorInput = colorInputName.size() ? shaderNode->addInputFromNodeDef(colorInputName) : nullptr;
+                colorInput->setAttribute(PortElement::NODE_NAME_ATTRIBUTE, newTexture->getName());
+                colorInput->removeAttribute(AttributeDef::VALUE_ATTRIBUTE);
+            }
         }
 
         // Color, alpha lookup
@@ -919,13 +1139,21 @@ void CgltfMaterialHandler::setColorInput(DocumentPtr materials, NodePtr shaderNo
                 setImageProperties(newTexture, textureView);
 
                 const string& newTextureName = newTexture->getName();
-                colorInput->setAttribute(PortElement::NODE_NAME_ATTRIBUTE, newTextureName);
-                colorInput->setOutputString("outcolor");
-                colorInput->removeAttribute(AttributeDef::VALUE_ATTRIBUTE);
+                if (!colorInput)
+                {
+                    colorInput = colorInputName.size() ? shaderNode->addInputFromNodeDef(colorInputName) : nullptr;
+                    colorInput->setAttribute(PortElement::NODE_NAME_ATTRIBUTE, newTextureName);
+                    colorInput->setOutputString("outcolor");
+                    colorInput->removeAttribute(AttributeDef::VALUE_ATTRIBUTE);
+                }
 
-                alphaInput->setAttribute(PortElement::NODE_NAME_ATTRIBUTE, newTextureName);
-                alphaInput->setOutputString("outa");
-                alphaInput->removeAttribute(AttributeDef::VALUE_ATTRIBUTE);
+                if (!alphaInput)
+                {
+                    alphaInput = alphaInputName.size() ? shaderNode->addInputFromNodeDef(alphaInputName) : nullptr;
+                    alphaInput->setAttribute(PortElement::NODE_NAME_ATTRIBUTE, newTextureName);
+                    alphaInput->setOutputString("outa");
+                    alphaInput->removeAttribute(AttributeDef::VALUE_ATTRIBUTE);
+                }
             }
         }
     }
@@ -933,10 +1161,19 @@ void CgltfMaterialHandler::setColorInput(DocumentPtr materials, NodePtr shaderNo
     // Handle simple color / alpha input
     else
     {
+        if (!colorInput)
+        {
+            colorInput = colorInputName.size() ? shaderNode->addInputFromNodeDef(colorInputName) : nullptr;
+        }
         if (colorInput)
         {
             ValuePtr color3Value = Value::createValue<Color3>(color);
             colorInput->setValueString(color3Value->getValueString());
+        }
+
+        if (!alphaInput)
+        {
+            alphaInput = alphaInputName.size() ? shaderNode->addInputFromNodeDef(alphaInputName) : nullptr;
         }
         if (alphaInput)
         {
@@ -945,7 +1182,7 @@ void CgltfMaterialHandler::setColorInput(DocumentPtr materials, NodePtr shaderNo
     }
 }
 
-void CgltfMaterialHandler::setFloatInput(DocumentPtr materials, NodePtr shaderNode, const std::string& inputName, 
+void GltfMaterialHandler::setFloatInput(DocumentPtr materials, NodePtr shaderNode, const std::string& inputName, 
                                        float floatFactor, const void* textureViewIn,
                                        const std::string& inputImageNodeName)
 {
@@ -981,7 +1218,7 @@ void CgltfMaterialHandler::setFloatInput(DocumentPtr materials, NodePtr shaderNo
     }
 }
 
-void CgltfMaterialHandler::setVector3Input(DocumentPtr materials, NodePtr shaderNode, const std::string& inputName, 
+void GltfMaterialHandler::setVector3Input(DocumentPtr materials, NodePtr shaderNode, const std::string& inputName, 
                                        const Vector3& vecFactor, const void* textureViewIn,
                                        const std::string& inputImageNodeName)
 {
@@ -1020,7 +1257,7 @@ void CgltfMaterialHandler::setVector3Input(DocumentPtr materials, NodePtr shader
     }
 }
 
-void CgltfMaterialHandler::loadMaterials(void *vdata)
+void GltfMaterialHandler::loadMaterials(void *vdata)
 {
     cgltf_data* data = static_cast<cgltf_data*>(vdata);
 
@@ -1090,7 +1327,7 @@ void CgltfMaterialHandler::loadMaterials(void *vdata)
             invalidTokens["__"] = "_";
             string origName = material->name;
             origName = replaceSubstrings(origName, invalidTokens);
-            
+
             materialName = "MAT_" + origName;
             shaderName = "SHD_" + origName;
         }
@@ -1105,7 +1342,10 @@ void CgltfMaterialHandler::loadMaterials(void *vdata)
         string shaderCategory = use_unlit ? "surface_unlit" : "gltf_pbr";
         string nodedefString = use_unlit ? "ND_surface_unlit" : "ND_gltf_pbr_surfaceshader";
         NodePtr shaderNode = _materials->addNode(shaderCategory, shaderName, SURFACE_SHADER_TYPE_STRING);
-        shaderNode->setAttribute(InterfaceElement::NODE_DEF_ATTRIBUTE, nodedefString);
+        if (_generateNodeDefs)
+        {
+            shaderNode->setAttribute(InterfaceElement::NODE_DEF_ATTRIBUTE, nodedefString);
+        }
         if (_generateFullDefinitions)
         {
             shaderNode->addInputsFromNodeDef();
@@ -1114,7 +1354,7 @@ void CgltfMaterialHandler::loadMaterials(void *vdata)
         // Create a surface material for the shader node
         NodePtr materialNode = _materials->addNode(SURFACE_MATERIAL_NODE_STRING, materialName, MATERIAL_TYPE_STRING);
         InputPtr shaderInput = materialNode->addInput(SURFACE_SHADER_TYPE_STRING, SURFACE_SHADER_TYPE_STRING);
-        shaderInput->setAttribute(PortElement::NODE_NAME_ATTRIBUTE, shaderNode->getName());        
+        shaderInput->setAttribute(PortElement::NODE_NAME_ATTRIBUTE, shaderNode->getName());
 
         // Handle separate occlusion texture
         bool haveSeparateOcclusion = false;
@@ -1127,6 +1367,7 @@ void CgltfMaterialHandler::loadMaterials(void *vdata)
             {
                 oURI = occlusion_texture->image->uri ? occlusion_texture->image->uri : SPACE_STRING;
             }
+
             if (!oURI.empty() && material->has_pbr_metallic_roughness)
             {
                 cgltf_pbr_metallic_roughness& roughness = material->pbr_metallic_roughness;
@@ -1159,7 +1400,7 @@ void CgltfMaterialHandler::loadMaterials(void *vdata)
                 roughness.base_color_factor[2]);
             float alpha = roughness.base_color_factor[3];
             setColorInput(_materials, shaderNode, colorAlphaInputs[colorAlphaInputOffset],
-                colorFactor, alpha, colorAlphaInputs[colorAlphaInputOffset+1], 
+                colorFactor, alpha, colorAlphaInputs[colorAlphaInputOffset + 1],
                 &roughness.base_color_texture, "image_basecolor");
 
             // Ignore any other information unsupported by unlit.
@@ -1183,7 +1424,7 @@ void CgltfMaterialHandler::loadMaterials(void *vdata)
                 imageNodeName = _materials->createValidChildName(imageNodeName);
                 std::string uri = texture->image->uri ? texture->image->uri : SPACE_STRING;
                 NodePtr textureNode = createTexture(_materials, imageNodeName, uri,
-                                                    VEC3_STRING, EMPTY_STRING);
+                    VEC3_STRING, EMPTY_STRING);
                 if (textureNode)
                 {
                     setImageProperties(textureNode, &textureView);
@@ -1214,77 +1455,6 @@ void CgltfMaterialHandler::loadMaterials(void *vdata)
             }
         }
 
-        // THIS IS NOT SUPPORTED. Users are expected to perform pre-conversion. 
-        // For now hust some basic testing code here.
-        // // typedef struct cgltf_pbr_specular_glossiness
-        // {
-        //	cgltf_texture_view diffuse_texture;
-        //	cgltf_texture_view specular_glossiness_texture;
-        //
-        //	cgltf_float diffuse_factor[4];
-        //	cgltf_float specular_factor[3];
-        //	cgltf_float glossiness_factor;
-        // } cgltf_pbr_specular_glossiness;
-        //
-        else if (material->has_pbr_specular_glossiness && !use_unlit)
-        {
-            StringVec colorAlphaInputs = { "base_color", "alpha" };
-            size_t  colorAlphaInputOffset = 0;
-
-            cgltf_pbr_specular_glossiness& specgloss = material->pbr_specular_glossiness;
-
-            // Parse base color and alpha
-            Color3 colorFactor(specgloss.diffuse_factor[0],
-                specgloss.diffuse_factor[1],
-                specgloss.diffuse_factor[2]);
-            float alpha = specgloss.diffuse_factor[3];
-            setColorInput(_materials, shaderNode, colorAlphaInputs[colorAlphaInputOffset],
-                colorFactor, alpha, colorAlphaInputs[colorAlphaInputOffset+1], 
-                &specgloss.diffuse_texture, "image_diffusecolor");
-
-            // Map image channesl to inputs
-            InputPtr specularColorInput = shaderNode->addInputFromNodeDef("specular_color");
-            InputPtr roughnessInput = shaderNode->addInputFromNodeDef("roughness");
-
-            // Check for specular/glossiness texture
-            cgltf_texture_view& textureView = specgloss.specular_glossiness_texture;
-            cgltf_texture* texture = textureView.texture;
-            if (texture && texture->image)
-            {
-                std::string imageNodeName = texture->image->name ? texture->image->name :
-                    "image_specGlossiness";
-                imageNodeName = _materials->createValidChildName(imageNodeName);
-                std::string uri = texture->image->uri ? texture->image->uri : SPACE_STRING;
-                NodePtr textureNode = createTexture(_materials, imageNodeName, uri,
-                    "color4", "srgb_texture");
-                if (textureNode)
-                {
-                    setImageProperties(textureNode, &textureView);
-                }
-
-                StringVec channels = { "rgb", "a" };
-                StringVec types = { "color3", FLOAT_STRING };
-                std::vector<InputPtr> inputs = { specularColorInput, roughnessInput };
-                for (size_t i = 0; i < inputs.size(); i++)
-                {
-                    if (inputs[i])
-                    {
-                        inputs[i]->setAttribute(PortElement::NODE_NAME_ATTRIBUTE, textureNode->getName());
-                        inputs[i]->setType(types[i]);
-                        inputs[i]->setChannels(channels[i]);
-                    }
-                }
-            }
-            else
-            {
-                roughnessInput->setValue<float>(specgloss.glossiness_factor);
-            }
-
-            InputPtr specularInput = shaderNode->addInputFromNodeDef("specular");
-            float specular = (specgloss.specular_factor[0] + specgloss.specular_factor[1] + specgloss.specular_factor[2]) / 3.0f;
-            specularInput->setValue<float>(specular);;
-        }
-
         // Firewall : Skip any other mappings as they will not exist on unlit_surface
         if (use_unlit)
         {
@@ -1293,20 +1463,26 @@ void CgltfMaterialHandler::loadMaterials(void *vdata)
 
         // Parse unmapped alpha parameters
         //
-        InputPtr alphaMode = shaderNode->addInputFromNodeDef("alpha_mode");
-        if (alphaMode)
+        if (material->alpha_mode != 0)
         {
-            cgltf_alpha_mode alpha_mode = material->alpha_mode;
-            alphaMode->setValue<int>(static_cast<int>(alpha_mode));
+            InputPtr alphaMode = shaderNode->addInputFromNodeDef("alpha_mode");
+            if (alphaMode)
+            {
+                cgltf_alpha_mode alpha_mode = material->alpha_mode;
+                alphaMode->setValue<int>(static_cast<int>(alpha_mode));
+            }
         }
-        InputPtr alphaCutoff = shaderNode->addInputFromNodeDef("alpha_cutoff");
-        if (alphaCutoff)
+        if (material->alpha_cutoff != 0.5f)
         {
-            alphaCutoff->setValue<float>(material->alpha_cutoff);
+            InputPtr alphaCutoff = shaderNode->addInputFromNodeDef("alpha_cutoff");
+            if (alphaCutoff)
+            {
+                alphaCutoff->setValue<float>(material->alpha_cutoff);
+            }
         }
 
         // Normal texture
-        setNormalMapInput(_materials, shaderNode, "normal", &material->normal_texture, "image_normal");
+        setNormalMapInput(_materials, shaderNode, "normal", &(material->normal_texture), "image_normal");
 
         // Handle sheen
         if (material->has_sheen)
@@ -1324,61 +1500,66 @@ void CgltfMaterialHandler::loadMaterials(void *vdata)
                 "image_sheen_roughness");
         }
 
-        // Parse iridescence
-        // typedef struct cgltf_iridescence
-        //{
-        //	cgltf_float iridescence_factor;
-        //	cgltf_texture_view iridescence_texture;
-        //	cgltf_float iridescence_ior;
-        //	cgltf_float iridescence_thickness_min;
-        //	cgltf_float iridescence_thickness_max;
-        //	cgltf_texture_view iridescence_thickness_texture;
-        //} cgltf_iridescence;
-        // https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_iridescence/README.md
-        if (material->has_iridescence)
+        // Only 1.35.6 and newer has iridescence
+        //std::tuple<int, int, int> version = getVersionIntegers();
+        //if (version >= std::tuple<int,int,int>(1, 35, 6))
         {
-            const cgltf_iridescence& iridescence = material->iridescence;
-
-            setFloatInput(_materials, shaderNode, "iridescence",
-                iridescence.iridescence_factor, &iridescence.iridescence_texture,
-                "image_iridescence");
-
-            setFloatInput(_materials, shaderNode, "iridescence_ior",
-                iridescence.iridescence_ior, nullptr,
-                "image_iridescence_ior");
-
-            // Create special node to map thickness min, max and input texture
-            InputPtr floatInput = shaderNode->addInputFromNodeDef("iridescence_thickness");
-            if (floatInput)
+            // Parse iridescence
+            // typedef struct cgltf_iridescence
+            //{
+            //	cgltf_float iridescence_factor;
+            //	cgltf_texture_view iridescence_texture;
+            //	cgltf_float iridescence_ior;
+            //	cgltf_float iridescence_thickness_min;
+            //	cgltf_float iridescence_thickness_max;
+            //	cgltf_texture_view iridescence_thickness_texture;
+            //} cgltf_iridescence;
+            // https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_iridescence/README.md
+            if (material->has_iridescence)
             {
-                const cgltf_texture_view& textureView = iridescence.iridescence_thickness_texture;
-                cgltf_texture* texture = textureView.texture;
-                if (texture && texture->image)
+                const cgltf_iridescence& iridescence = material->iridescence;
+
+                setFloatInput(_materials, shaderNode, "iridescence",
+                    iridescence.iridescence_factor, &iridescence.iridescence_texture,
+                    "image_iridescence");
+
+                setFloatInput(_materials, shaderNode, "iridescence_ior",
+                    iridescence.iridescence_ior, nullptr,
+                    "image_iridescence_ior");
+
+                // Create special node to map thickness min, max and input texture
+                InputPtr floatInput = shaderNode->addInputFromNodeDef("iridescence_thickness");
+                if (floatInput)
                 {
-                    std::string imageNodeName = _materials->createValidChildName("image_iridescence_thickness");
-                    std::string uri = texture->image->uri ? texture->image->uri : SPACE_STRING;
-                    NodePtr newTexture = createTexture(_materials, imageNodeName, uri, FLOAT_STRING, EMPTY_STRING, 
-                                                        "gltf_iridescence_thickness");
-                    if (newTexture)
+                    const cgltf_texture_view& textureView = iridescence.iridescence_thickness_texture;
+                    cgltf_texture* texture = textureView.texture;
+                    if (texture && texture->image)
                     {
-                        InputPtr minInput = newTexture->addInputFromNodeDef("thicknessMin");
-                        if (minInput)
+                        std::string imageNodeName = _materials->createValidChildName("image_iridescence_thickness");
+                        std::string uri = texture->image->uri ? texture->image->uri : SPACE_STRING;
+                        NodePtr newTexture = createTexture(_materials, imageNodeName, uri, FLOAT_STRING, EMPTY_STRING,
+                            "gltf_iridescence_thickness");
+                        if (newTexture)
                         {
-                            minInput->setValue<float>(iridescence.iridescence_thickness_min);
+                            InputPtr minInput = newTexture->addInputFromNodeDef("thicknessMin");
+                            if (minInput)
+                            {
+                                minInput->setValue<float>(iridescence.iridescence_thickness_min);
+                            }
+                            InputPtr maxInput = newTexture->addInputFromNodeDef("thicknessMax");
+                            if (maxInput)
+                            {
+                                maxInput->setValue<float>(iridescence.iridescence_thickness_max);
+                            }
+                            setImageProperties(newTexture, &textureView);
                         }
-                        InputPtr maxInput = newTexture->addInputFromNodeDef("thicknessMax");
-                        if (maxInput)
-                        {
-                            maxInput->setValue<float>(iridescence.iridescence_thickness_max);
-                        }
-                        setImageProperties(newTexture, &textureView);
+                        floatInput->setAttribute(PortElement::NODE_NAME_ATTRIBUTE, newTexture->getName());
+                        floatInput->removeAttribute(AttributeDef::VALUE_ATTRIBUTE);
                     }
-                    floatInput->setAttribute(PortElement::NODE_NAME_ATTRIBUTE, newTexture->getName());
-                    floatInput->removeAttribute(AttributeDef::VALUE_ATTRIBUTE);
                 }
             }
         }
-    
+
         // Parse clearcoat
         // typedef struct cgltf_clearcoat
         // {
@@ -1395,15 +1576,15 @@ void CgltfMaterialHandler::loadMaterials(void *vdata)
 
             // Mapped or unmapped clearcoat
             setFloatInput(_materials, shaderNode, "clearcoat",
-                clearcoat.clearcoat_factor, 
+                clearcoat.clearcoat_factor,
                 &clearcoat.clearcoat_texture,
                 "image_clearcoat");
 
             // Mapped or unmapped clearcoat roughness
             setFloatInput(_materials, shaderNode, "clearcoat_roughness",
-                clearcoat.clearcoat_roughness_factor, 
+                clearcoat.clearcoat_roughness_factor,
                 &clearcoat.clearcoat_roughness_texture,
-                "image_clearcoat_roughness");           
+                "image_clearcoat_roughness");
 
             // Normal map clearcoat_normal
             setNormalMapInput(_materials, shaderNode, "clearcoat_normal", &material->normal_texture, 
@@ -1421,7 +1602,7 @@ void CgltfMaterialHandler::loadMaterials(void *vdata)
             cgltf_transmission& transmission = material->transmission;
 
             setFloatInput(_materials, shaderNode, "transmission",
-                transmission.transmission_factor, 
+                transmission.transmission_factor,
                 &transmission.transmission_texture,
                 "image_transmission");
         }
@@ -1430,8 +1611,8 @@ void CgltfMaterialHandler::loadMaterials(void *vdata)
         // typedef struct cgltf_specular {
         //      cgltf_texture_view specular_texture;
         //      cgltf_texture_view specular_color_texture;
-	    //      cgltf_float specular_color_factor[3];
-	    //      cgltf_float specular_factor;
+        //      cgltf_float specular_color_factor[3];
+        //      cgltf_float specular_factor;
         // } cgltf_specular
         //
         if (material->has_specular)
@@ -1444,12 +1625,12 @@ void CgltfMaterialHandler::loadMaterials(void *vdata)
                 specular.specular_color_factor[2]);
             setColorInput(_materials, shaderNode, "specular_color",
                 colorFactor, 1.0f, EMPTY_STRING,
-                &specular.specular_color_texture, 
+                &specular.specular_color_texture,
                 "image_specularcolor");
 
             // Mapped or unmapped specular color
             setFloatInput(_materials, shaderNode, "specular",
-                specular.specular_factor, 
+                specular.specular_factor,
                 &specular.specular_texture,
                 "image_specular");
         }
@@ -1468,7 +1649,7 @@ void CgltfMaterialHandler::loadMaterials(void *vdata)
         // Parse emissive inputs
         //
         // cgltf_texture_view emissive_texture;
-	    // cgltf_float emissive_factor[3];
+        // cgltf_float emissive_factor[3];
         //
         Color3 colorFactor(material->emissive_factor[0],
             material->emissive_factor[1],
@@ -1490,10 +1671,10 @@ void CgltfMaterialHandler::loadMaterials(void *vdata)
         // 
         // typedef struct cgltf_volume
         // {
-	    //      cgltf_texture_view thickness_texture;
-	    //      cgltf_float thickness_factor;
-	    //      cgltf_float attenuation_color[3];
-	    //      cgltf_float attenuation_distance;
+        //      cgltf_texture_view thickness_texture;
+        //      cgltf_float thickness_factor;
+        //      cgltf_float attenuation_color[3];
+        //      cgltf_float attenuation_distance;
         // } cgltf_volume;
         //
         if (material->has_volume)
