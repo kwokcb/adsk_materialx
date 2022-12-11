@@ -571,235 +571,6 @@ string GraphElement::asStringDot() const
     return dot;
 }
 
-string GraphElement::asMermaid(const string& rootName, const std::vector<OutputPtr> outputPaths) const
-{
-    string graphName = rootName.size() ? rootName : getNamePath();
-    if (graphName.empty())
-    {
-        graphName = "Document";
-    }
-
-    string currentGraphString;
-
-    // Write out all connections.
-    std::set<Edge> processedEdges;
-    StringSet processedInterfaces;
-    std::unordered_map<string, StringSet> subGraphs;
-
-    std::vector<OutputPtr> outputs;
-    if (!outputPaths.empty())
-    {
-        for (OutputPtr out : outputPaths)
-        {
-            outputs.push_back(out);
-        }
-    }
-    else
-    {
-        outputs = getOutputs();
-    }
-    for (OutputPtr output : outputs)
-    {
-        ElementPtr root;
-        ElementPtr parent = output->getParent();
-        NodePtr node = parent->asA<Node>();
-        if (!parent->isA<NodeGraph>() &&
-            (node && node->getType() != MATERIAL_TYPE_STRING))
-        {
-            root = parent;
-        }
-        else
-        {
-            root = output;
-        }
-
-        bool processedAny = false;
-        for (Edge edge : root->traverseGraph())
-        {
-            if (!processedEdges.count(edge))
-            {
-                ElementPtr upstreamElem = edge.getUpstreamElement();
-                ElementPtr downstreamElem = edge.getDownstreamElement();
-                ElementPtr connectingElem = edge.getConnectingElement();
-
-                processedAny = true;
-
-                // Add upstream
-                ElementPtr upstreamElemParent = upstreamElem->getParent();
-                string upstreamGraphId;
-                string upstreamName = upstreamElem->getName();
-                string upstreamLabel = upstreamName;
-                if (upstreamElemParent)
-                {
-                    upstreamGraphId = createValidName(upstreamElemParent->getNamePath());
-                    if (!upstreamGraphId.empty())
-                    {
-                        upstreamLabel = upstreamGraphId + "_" + upstreamName;
-                        if (subGraphs.count(upstreamGraphId))
-                        {
-                            subGraphs[upstreamGraphId].insert(upstreamLabel);
-                        }
-                        else
-                        {
-                            StringSet newSet;
-                            newSet.insert(upstreamLabel);
-                            subGraphs[upstreamGraphId] = newSet;
-                        }
-                    }
-                }
-                currentGraphString += "    " + upstreamLabel + "[" + upstreamName + "]";
-
-                // Add connecting element
-                string upStreamPortLabel;
-                if (connectingElem)
-                {
-                    string connectingElementString = "." + connectingElem->getName();
-                    string upStreamPort = connectingElem->getAttribute(PortElement::OUTPUT_ATTRIBUTE);
-                    if (!upStreamPort.empty())
-                    {
-                        upstreamGraphId = createValidName(upstreamElemParent->getNamePath());
-                        upStreamPortLabel = upstreamGraphId.empty() ? upStreamPort :
-                            upstreamGraphId + "_" + upStreamPort;
-                        if (!upstreamGraphId.empty())
-                        {
-                            if (subGraphs.count(upstreamGraphId))
-                            {
-                                subGraphs[upstreamGraphId].insert(upStreamPortLabel);
-                            }
-                            else
-                            {
-                                StringSet newSet;
-                                newSet.insert(upStreamPortLabel);
-                                subGraphs[upstreamGraphId] = newSet;
-                            }
-                        }
-                        currentGraphString += " --> " + upStreamPortLabel + "([" + upStreamPort + "])" +
-                            " --" + connectingElementString + "--> ";
-                    }
-                    else
-                    {
-                        currentGraphString += " --" + connectingElementString + "--> ";
-                    }
-                }
-                else
-                {
-                    currentGraphString += "--> ";
-                }
-
-                // Add downstream
-                ElementPtr downstreamParent = downstreamElem->getParent();
-                string downstreamGraphId;
-                string downstreamName = downstreamElem->getName();
-                string downstreamLabel = downstreamName;
-                if (downstreamParent)
-                {
-                    downstreamGraphId = createValidName(downstreamParent->getNamePath());
-                    if (!downstreamGraphId.empty())
-                    {
-                        downstreamLabel = downstreamGraphId + "_" + downstreamName;
-                        if (subGraphs.count(downstreamGraphId))
-                        {
-                            subGraphs[downstreamGraphId].insert(downstreamLabel);
-                        }
-                        else
-                        {
-                            StringSet newSet;
-                            newSet.insert(downstreamLabel);
-                            subGraphs[downstreamGraphId] = newSet;
-                        }
-                    }
-                }
-                if (!downstreamElem->isA<Output>())
-                {
-                    currentGraphString += downstreamLabel + "[" + downstreamName + "]" + "\n";
-                }
-                else
-                {
-                    currentGraphString += downstreamLabel + "([" + downstreamName + "])" + "\n";
-                    currentGraphString += "    style " + downstreamLabel + " fill:#1b1,color:#111\n";
-                }
-
-                if (!upStreamPortLabel.empty())
-                {
-                    currentGraphString += "    style " + upStreamPortLabel + " fill:#1b1,color:#111\n";
-                }
-
-                NodePtr upstreamNode = upstreamElem->asA<Node>();
-                if (upstreamNode && !processedInterfaces.count(upstreamNode->getName()))
-                {
-                    for (InputPtr input : upstreamNode->getInputs())
-                    {
-                        if (input->hasInterfaceName())
-                        {
-                            const string interfaceName = input->getInterfaceName();
-                            const ElementPtr upstreamParent = upstreamNode->getParent() ? upstreamNode->getParent() : nullptr;
-                            NodeGraphPtr upstreamGraph = nullptr;
-                            if (upstreamNode->getParent())
-                            {
-                                upstreamGraph = upstreamNode->getParent()->asA<NodeGraph>();
-                            }
-                            const InputPtr interfaceInput = upstreamGraph ? upstreamGraph->getInput(interfaceName) : nullptr;
-                            if (interfaceInput && !interfaceInput->getConnectedNode())
-                            {
-                                string const upstreamParentPath = createValidName(upstreamNode->getParent()->getNamePath());
-                                const string graphInterfaceLabel = input->getInterfaceName();
-                                const string graphInterfaceName = upstreamParentPath + "_" + graphInterfaceLabel;
-
-                                if (!upstreamParentPath.empty())
-                                {
-                                    if (subGraphs.count(upstreamParentPath))
-                                    {
-                                        subGraphs[upstreamParentPath].insert(graphInterfaceName);
-                                    }
-                                    else
-                                    {
-                                        StringSet newSet;
-                                        newSet.insert(graphInterfaceName);
-                                        subGraphs[downstreamGraphId] = newSet;
-                                    }
-                                }
-
-                                const string interiorNodeLabel = upstreamElem->getNamePath();
-                                const string interiorNodeName = createValidName(interiorNodeLabel) + "[" + interiorNodeLabel + "]";
-
-                                currentGraphString += "    " + graphInterfaceName + "([" + graphInterfaceLabel + "])";
-                                currentGraphString += " ==." + input->getName() + "==> " + interiorNodeName + "\n";
-                                currentGraphString += "    style " + graphInterfaceName + " fill:#0bb,color:#111\n";
-                            }
-                        }
-                    }
-                    processedInterfaces.insert(upstreamNode->getName());
-                }
-
-                processedEdges.insert(edge);
-            }
-        }
-
-        if (!processedAny)
-        {
-            const string rootNamePath = root->getNamePath();
-            currentGraphString += "   " + createValidName(rootNamePath) + "[" + rootNamePath + "]\n";
-        }
-    }
-
-    for (auto subGraph : subGraphs)
-    {
-        currentGraphString += "  subgraph " + subGraph.first + "\n";
-        for (auto item : subGraph.second)
-        {
-            currentGraphString += "    " + item + "\n";
-        }
-        currentGraphString += "  end\n";
-    }
-
-    string outputString = "```mermaid\n";
-    outputString += "graph TD;\n";
-    outputString += currentGraphString;
-    outputString += "```\n";
-
-    return outputString;
-}
-
 //
 // NodeGraph methods
 //
@@ -853,6 +624,53 @@ InputPtr Node::addInputFromNodeDef(const string& inputName)
 }
 
 void Node::addInputsFromNodeDef()
+{
+    NodeDefPtr nodeDef = getNodeDef();
+    if (nodeDef)
+    {
+        for (InputPtr nodeDefInput : nodeDef->getActiveInputs())
+        {
+            const string& inputName = nodeDefInput->getName();
+            InputPtr nodeInput = getInput(inputName);
+            if (!nodeInput)
+            {
+                nodeInput = addInput(inputName, nodeDefInput->getType());
+                if (nodeDefInput->hasValueString())
+                {
+                    nodeInput->setValueString(nodeDefInput->getValueString());
+                }
+            }
+        }
+    }
+}
+
+ValueElementPtr Node::addValueElementFromNodeDef(const string& name)
+{
+    ValueElementPtr nodeElement = getValueElement(name);
+    if (!nodeElement)
+    {
+        NodeDefPtr nodeDef = getNodeDef();
+        ValueElementPtr nodeDefElem = nodeDef ? nodeDef->getActiveValueElement(name) : nullptr;
+        if (nodeDefElem)
+        { 
+            if (nodeDefElem->isA<Output>())
+            {
+                nodeElement = addOutput(name, nodeDefElem->getType());
+            }
+            else if (nodeDefElem->isA<Input>())
+            {
+                nodeElement = addInput(name, nodeDefElem->getType());
+            }            
+            if (nodeElement && nodeDefElem->hasValueString())
+            {
+                nodeElement->setValueString(nodeDefElem->getValueString());
+            }
+        }
+    }
+    return nodeElement;
+}
+
+void Node::addValueElementsFromNodeDef()
 {
     NodeDefPtr nodeDef = getNodeDef();
     if (nodeDef)

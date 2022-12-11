@@ -1226,7 +1226,7 @@ void Viewer::loadDocument(const mx::FilePath& filename, mx::DocumentPtr librarie
         }
 
         // If requested, add implicit inputs to top-level nodes.
-        //if (_showAllInputs)
+        if (_showAllInputs)
         {
             for (mx::NodePtr node : doc->getNodes())
             {
@@ -1545,6 +1545,7 @@ void Viewer::saveDotFiles()
 
         MaterialPtr material = getSelectedMaterial();
         mx::TypedElementPtr elem = material ? material->getElement() : nullptr;
+
         mx::NodePtr shaderNode = nullptr;
         mx::GraphElementPtr graphNode = nullptr;
 
@@ -1569,6 +1570,13 @@ void Viewer::saveDotFiles()
         }
         else
         {
+            // Must do this for now to get all inputs / outputs into graph
+            mx::DocumentPtr doc = elem->getDocument();
+            for (mx::NodePtr node : doc->getNodes())
+            {
+                node->addValueElementsFromNodeDef();
+            }
+
             mx::NodePtr node = elem->asA<mx::Node>();
             if (node && node->getType() == mx::MATERIAL_TYPE_STRING)
             {

@@ -53,10 +53,10 @@ class MX_FORMAT_API Filter
     /// @return GraphElement result from converting the input
     virtual const GraphElementPtr read(const string& inputBuffer) = 0;
 
-    /// Traverse a graph and return a string with the appropriate 
+    /// Traverse a graph and return a string 
     /// Derived classes must implement this method
     /// @param graph GraphElement to write 
-    /// @param roots Optional list of roots to filter what upstream elements to consider></param>
+    /// @param roots Optional list of roots to filter what upstream elements to consider>
     /// @returns Buffer result
     virtual string write(GraphElementPtr graph, const std::vector<OutputPtr> roots) = 0;
 

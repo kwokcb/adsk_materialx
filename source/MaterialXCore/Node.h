@@ -163,6 +163,14 @@ class MX_CORE_API Node : public InterfaceElement
     /// Add inputs based on the corresponding associated node definition.
     void addInputsFromNodeDef();
 
+    /// Add an value elements (inputs/outputs) based on the corresponding element for the associated node definition.
+    /// If the element already exists on the node it will just be returned.
+    ValueElementPtr addValueElementFromNodeDef(const string& name);
+
+    /// Add value elements based on the corresponding associated node definition.
+    void addValueElementsFromNodeDef();
+
+
     /// @}
     /// @name Validation
     /// @{
@@ -322,8 +330,6 @@ class MX_CORE_API GraphElement : public InterfaceElement
     /// the owning document, then they will be used to provide additional
     /// formatting details.
     string asStringDot() const;
-
-    string asMermaid(const string& rootName, const std::vector<OutputPtr> outputPaths) const;
 
     /// @}
 };
