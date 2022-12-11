@@ -22,6 +22,7 @@
 
 #include <MaterialXFormat/Environ.h>
 #include <MaterialXFormat/Util.h>
+#include <MaterialXFormat/Filter.h>
 
 #include <nanogui/icons.h>
 #include <nanogui/messagedialog.h>
@@ -1590,7 +1591,8 @@ void Viewer::saveDotFiles()
         bool wroteFiles = false;
         if (graphNode)
         {
-            std::string mmString = graphNode->asMermaid(graphNode->getNamePath(), outputs);
+            mx::MermaidFilter mermaidFilter;
+            std::string mmString = mermaidFilter.write(graphNode, outputs);
             std::string mmFilename = baseFilename.asString() + "_" + mx::createValidName(elem->getNamePath()) + ".md";
             writeTextFile(mmString, mmFilename);
 
