@@ -78,6 +78,15 @@ class MX_FORMAT_API MermaidFilter : public Filter
 
     const GraphElementPtr read(const string& inputBuffer) override;
     string write(GraphElementPtr graph, const std::vector<OutputPtr> roots, bool writeCategoryNames=true) override;
+
+  protected:
+    /// Add a Element label to a subgraph list. Given a node and label, the label will to bused to add an identifier to the subgraph list.
+    /// @param subGraphs Structure to maintain a list of unique node names per subgraph name. The subgraph name is the full path name.
+    /// @param node The parent of this node if it exists is the subgraph to add the label to
+    /// @param label The string used to create a uniquely labelled element in the subgraph. The subgraph path will be prepended to the lable
+    /// @return Derived label name
+    /// </summary>
+    string addNodeToSubgraph(std::unordered_map<string, StringSet>& subGraphs, const ElementPtr node, const string& label) const;
 };
 
 

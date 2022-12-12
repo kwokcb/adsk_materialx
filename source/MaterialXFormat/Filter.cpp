@@ -12,6 +12,41 @@ const GraphElementPtr MermaidFilter::read(const string&)
     return nullptr;
 }
 
+string MermaidFilter::addNodeToSubgraph(std::unordered_map<string, StringSet>& subGraphs, const ElementPtr node, const string& label) const
+{   
+    if (!node)
+    {
+        return EMPTY_STRING;
+    }
+
+    string subgraphNodeName = label;
+    const ElementPtr subgraph = node->getParent();
+    if (!subgraph)
+    {
+        return subgraphNodeName;
+    }
+
+    // Use full path to identify sub-graphs
+    // A Document has no path so even though it is a GraphElement it will not be added here
+    string graphId = createValidName(subgraph->getNamePath());
+    if (!graphId.empty())
+    {
+        subgraphNodeName = graphId + "_" + subgraphNodeName;
+        if (subGraphs.count(graphId))
+        {
+            subGraphs[graphId].insert(subgraphNodeName);
+        }
+        else
+        {
+            StringSet newSet;
+            newSet.insert(subgraphNodeName);
+            subGraphs[graphId] = newSet;
+        }
+    }
+
+    return subgraphNodeName;
+}
+
 string MermaidFilter::write(GraphElementPtr graph, const std::vector<OutputPtr> roots, bool writeCategoryNames)
 {
     string currentGraphString;
@@ -54,63 +89,34 @@ string MermaidFilter::write(GraphElementPtr graph, const std::vector<OutputPtr> 
         {
             if (!processedEdges.count(edge))
             {
+                processedEdges.insert(edge);
+
                 ElementPtr upstreamElem = edge.getUpstreamElement();
                 ElementPtr downstreamElem = edge.getDownstreamElement();
                 ElementPtr connectingElem = edge.getConnectingElement();
 
                 processedAny = true;
 
-                // Add upstream
-                ElementPtr upstreamElemParent = upstreamElem->getParent();
-                string upstreamGraphId;
-                string upstreamCategory = upstreamElem->getCategory();
-                string upstreamName = upstreamElem->getName();
-                string upstreamLabel = upstreamName;
-                if (upstreamElemParent)
-                {
-                    upstreamGraphId = createValidName(upstreamElemParent->getNamePath());
-                    if (!upstreamGraphId.empty())
-                    {
-                        upstreamLabel = upstreamGraphId + "_" + upstreamName;
-                        if (subGraphs.count(upstreamGraphId))
-                        {
-                            subGraphs[upstreamGraphId].insert(upstreamLabel);
-                        }
-                        else
-                        {
-                            StringSet newSet;
-                            newSet.insert(upstreamLabel);
-                            subGraphs[upstreamGraphId] = newSet;
-                        }
-                    }
-                }
+                // Add upstream nodes. 
+                // - Add list of unique nodes to parent subgraph if it exists
+                // - Output upstream node + label (id or category)
+                string upstreamLabel = addNodeToSubgraph(subGraphs, upstreamElem, upstreamElem->getName());
                 currentGraphString += "    " + upstreamLabel + "[" + 
-                    (writeCategoryNames ? upstreamCategory : upstreamLabel) + "]";
+                    (writeCategoryNames ? upstreamElem->getCategory() : upstreamLabel) + "]";
 
-                // Add connecting element
+                // Add connecting edges
+                //
                 string upStreamPortLabel;
                 if (connectingElem)
                 {
                     string connectingElementString = "." + connectingElem->getName();
+                    // Check for an explicit output name
                     string upStreamPort = connectingElem->getAttribute(PortElement::OUTPUT_ATTRIBUTE);
                     if (!upStreamPort.empty())
                     {
-                        upstreamGraphId = createValidName(upstreamElemParent->getNamePath());
-                        upStreamPortLabel = upstreamGraphId.empty() ? upStreamPort :
-                            upstreamGraphId + "_" + upStreamPort;
-                        if (!upstreamGraphId.empty())
-                        {
-                            if (subGraphs.count(upstreamGraphId))
-                            {
-                                subGraphs[upstreamGraphId].insert(upStreamPortLabel);
-                            }
-                            else
-                            {
-                                StringSet newSet;
-                                newSet.insert(upStreamPortLabel);
-                                subGraphs[upstreamGraphId] = newSet;
-                            }
-                        }
+                        // Add the output to parent subgraph if any
+                        // Upstream to Output connection
+                        upStreamPortLabel = addNodeToSubgraph(subGraphs, upstreamElem, upStreamPort);                        
                         currentGraphString += " --> " + upStreamPortLabel + "([" + upStreamPort + "])" +
                             " --" + connectingElementString + "--> ";
                     }
@@ -125,29 +131,10 @@ string MermaidFilter::write(GraphElementPtr graph, const std::vector<OutputPtr> 
                 }
 
                 // Add downstream
-                ElementPtr downstreamParent = downstreamElem->getParent();
-                string downstreamGraphId;
                 string downstreamCategory = downstreamElem->getCategory();
                 string downstreamName = downstreamElem->getName();
-                string downstreamLabel = downstreamName;
-                if (downstreamParent)
-                {
-                    downstreamGraphId = createValidName(downstreamParent->getNamePath());
-                    if (!downstreamGraphId.empty())
-                    {
-                        downstreamLabel = downstreamGraphId + "_" + downstreamName;
-                        if (subGraphs.count(downstreamGraphId))
-                        {
-                            subGraphs[downstreamGraphId].insert(downstreamLabel);
-                        }
-                        else
-                        {
-                            StringSet newSet;
-                            newSet.insert(downstreamLabel);
-                            subGraphs[downstreamGraphId] = newSet;
-                        }
-                    }
-                }
+                string downstreamLabel = addNodeToSubgraph(subGraphs, downstreamElem, downstreamName);                        
+
                 if (!downstreamElem->isA<Output>())
                 {
                     currentGraphString += downstreamLabel + 
@@ -166,8 +153,11 @@ string MermaidFilter::write(GraphElementPtr graph, const std::vector<OutputPtr> 
                 }
 
                 NodePtr upstreamNode = upstreamElem->asA<Node>();
-                if (upstreamNode && !processedInterfaces.count(upstreamNode->getName()))
+                const string upstreamNodeName = upstreamNode ? upstreamNode->getName() : EMPTY_STRING;
+                if (upstreamNode && !processedInterfaces.count(upstreamNodeName))
                 {
+                    processedInterfaces.insert(upstreamNodeName);
+
                     for (InputPtr input : upstreamNode->getInputs())
                     {
                         if (input->hasInterfaceName())
@@ -182,44 +172,27 @@ string MermaidFilter::write(GraphElementPtr graph, const std::vector<OutputPtr> 
                             const InputPtr interfaceInput = upstreamGraph ? upstreamGraph->getInput(interfaceName) : nullptr;
                             if (interfaceInput && !interfaceInput->getConnectedNode())
                             {
-                                string const upstreamParentPath = createValidName(upstreamNode->getParent()->getNamePath());
-                                const string graphInterfaceLabel = input->getInterfaceName();
-                                const string graphInterfaceName = upstreamParentPath + "_" + graphInterfaceLabel;
-
-                                if (!upstreamParentPath.empty())
-                                {
-                                    if (subGraphs.count(upstreamParentPath))
-                                    {
-                                        subGraphs[upstreamParentPath].insert(graphInterfaceName);
-                                    }
-                                    else
-                                    {
-                                        StringSet newSet;
-                                        newSet.insert(graphInterfaceName);
-                                        subGraphs[downstreamGraphId] = newSet;
-                                    }
-                                }
+                                string graphInterfaceName = addNodeToSubgraph(subGraphs, upstreamNode, input->getInterfaceName());                        
 
                                 const string interiorNodeLabel = upstreamElem->getNamePath();
                                 const string interiorNodeCategory = upstreamElem->getCategory();
                                 const string interiorNodeName = createValidName(interiorNodeLabel) + "[" + 
                                     (writeCategoryNames ? interiorNodeCategory : interiorNodeLabel) + "]";
 
-                                currentGraphString += "    " + graphInterfaceName + "([" + graphInterfaceLabel + "])";
+                                currentGraphString += "    " + graphInterfaceName + "([" + input->getInterfaceName() + "])";
                                 currentGraphString += " ==." + input->getName() + "==> " + interiorNodeName + "\n";
                                 currentGraphString += "    style " + graphInterfaceName + " fill:#0bb,color:#111\n";
                             }
                         }
                     }
-                    processedInterfaces.insert(upstreamNode->getName());
                 }
 
-                processedEdges.insert(edge);
             }
         }
 
         if (!processedAny)
         {
+            // Only add in the root node if no connections found during traversal
             const string rootNamePath = root->getNamePath();
             const string rootNameCategory = root->getCategory();
             currentGraphString += "   " + createValidName(rootNamePath) + "[" + 
@@ -227,6 +200,7 @@ string MermaidFilter::write(GraphElementPtr graph, const std::vector<OutputPtr> 
         }
     }
 
+    // Add output for nodes in subgraphs
     for (auto subGraph : subGraphs)
     {
         currentGraphString += "  subgraph " + subGraph.first + "\n";
@@ -237,6 +211,7 @@ string MermaidFilter::write(GraphElementPtr graph, const std::vector<OutputPtr> 
         currentGraphString += "  end\n";
     }
 
+    // Output entire graph
     string outputString = "```mermaid\n";
     outputString += "graph TD;\n";
     outputString += currentGraphString;
