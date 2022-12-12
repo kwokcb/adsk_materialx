@@ -205,7 +205,7 @@ class Viewer : public ng::Screen
     void loadStandardLibraries();
     void saveShaderSource(mx::GenContext& context);
     void loadShaderSource();
-    void saveDotFiles();
+    void saveDiagrams();
 
     // Translate the current material to the target shading model.
     mx::DocumentPtr translateMaterial();

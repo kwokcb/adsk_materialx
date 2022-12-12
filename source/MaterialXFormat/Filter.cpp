@@ -12,7 +12,7 @@ const GraphElementPtr MermaidFilter::read(const string&)
     return nullptr;
 }
 
-string MermaidFilter::write(GraphElementPtr graph, const std::vector<OutputPtr> roots)
+string MermaidFilter::write(GraphElementPtr graph, const std::vector<OutputPtr> roots, bool writeCategoryNames)
 {
     string currentGraphString;
 
@@ -63,6 +63,7 @@ string MermaidFilter::write(GraphElementPtr graph, const std::vector<OutputPtr> 
                 // Add upstream
                 ElementPtr upstreamElemParent = upstreamElem->getParent();
                 string upstreamGraphId;
+                string upstreamCategory = upstreamElem->getCategory();
                 string upstreamName = upstreamElem->getName();
                 string upstreamLabel = upstreamName;
                 if (upstreamElemParent)
@@ -83,7 +84,8 @@ string MermaidFilter::write(GraphElementPtr graph, const std::vector<OutputPtr> 
                         }
                     }
                 }
-                currentGraphString += "    " + upstreamLabel + "[" + upstreamName + "]";
+                currentGraphString += "    " + upstreamLabel + "[" + 
+                    (writeCategoryNames ? upstreamCategory : upstreamLabel) + "]";
 
                 // Add connecting element
                 string upStreamPortLabel;
@@ -125,6 +127,7 @@ string MermaidFilter::write(GraphElementPtr graph, const std::vector<OutputPtr> 
                 // Add downstream
                 ElementPtr downstreamParent = downstreamElem->getParent();
                 string downstreamGraphId;
+                string downstreamCategory = downstreamElem->getCategory();
                 string downstreamName = downstreamElem->getName();
                 string downstreamLabel = downstreamName;
                 if (downstreamParent)
@@ -147,11 +150,13 @@ string MermaidFilter::write(GraphElementPtr graph, const std::vector<OutputPtr> 
                 }
                 if (!downstreamElem->isA<Output>())
                 {
-                    currentGraphString += downstreamLabel + "[" + downstreamName + "]" + "\n";
+                    currentGraphString += downstreamLabel + 
+                        "[" + (writeCategoryNames ? downstreamCategory : downstreamName) + "]" + "\n";
                 }
                 else
                 {
-                    currentGraphString += downstreamLabel + "([" + downstreamName + "])" + "\n";
+                    currentGraphString += downstreamLabel + 
+                        "([" + (writeCategoryNames ? downstreamCategory : downstreamName) + "])" + "\n";
                     currentGraphString += "    style " + downstreamLabel + " fill:#1b1,color:#111\n";
                 }
 
@@ -196,7 +201,9 @@ string MermaidFilter::write(GraphElementPtr graph, const std::vector<OutputPtr> 
                                 }
 
                                 const string interiorNodeLabel = upstreamElem->getNamePath();
-                                const string interiorNodeName = createValidName(interiorNodeLabel) + "[" + interiorNodeLabel + "]";
+                                const string interiorNodeCategory = upstreamElem->getCategory();
+                                const string interiorNodeName = createValidName(interiorNodeLabel) + "[" + 
+                                    (writeCategoryNames ? interiorNodeCategory : interiorNodeLabel) + "]";
 
                                 currentGraphString += "    " + graphInterfaceName + "([" + graphInterfaceLabel + "])";
                                 currentGraphString += " ==." + input->getName() + "==> " + interiorNodeName + "\n";
@@ -214,7 +221,9 @@ string MermaidFilter::write(GraphElementPtr graph, const std::vector<OutputPtr> 
         if (!processedAny)
         {
             const string rootNamePath = root->getNamePath();
-            currentGraphString += "   " + createValidName(rootNamePath) + "[" + rootNamePath + "]\n";
+            const string rootNameCategory = root->getCategory();
+            currentGraphString += "   " + createValidName(rootNamePath) + "[" + 
+                (writeCategoryNames ? rootNameCategory : rootNamePath) + "]\n";
         }
     }
 

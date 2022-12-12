@@ -1537,7 +1537,7 @@ void Viewer::loadShaderSource()
     }
 }
 
-void Viewer::saveDotFiles()
+void Viewer::saveDiagrams()
 {
     try
     {
@@ -1552,6 +1552,8 @@ void Viewer::saveDotFiles()
         // Handle an output. Get parent graph
         std::vector<mx::OutputPtr> outputs;
 
+        // If element chosen is an output then use that as the starting point (root)
+        // and get the parent nodegraph or document (GraphElement)
         mx::OutputPtr rootOutput = elem->asA<mx::Output>();
         if (rootOutput)
         {
@@ -1568,26 +1570,29 @@ void Viewer::saveDotFiles()
                 graphNode = elem->getDocument();
             }
         }
+
+        // Root is not an output so attempt to find output roots
+        //
         else
         {
-            // Must do this for now to get all inputs / outputs into graph
-            mx::DocumentPtr doc = elem->getDocument();
-            for (mx::NodePtr node : doc->getNodes())
-            {
-                node->addValueElementsFromNodeDef();
-            }
-
             mx::NodePtr node = elem->asA<mx::Node>();
+
+            // Material nodes have no output so traverse upstream to get starting node
             if (node && node->getType() == mx::MATERIAL_TYPE_STRING)
             {
                 std::vector<mx::NodePtr> shaderNodes = mx::getShaderNodes(node);
                 if (!shaderNodes.empty())
                 {
                     node = shaderNodes[0];
+                    if (!node->getOutputCount())
+                    {
+                        node->addValueElementsFromNodeDef();
+                    }
                 }
             }
             if (node)
             {
+                // Get all outputs on the node
                 for (mx::OutputPtr out : node->getActiveOutputs())
                 {
                     outputs.push_back(out);
@@ -1599,15 +1604,28 @@ void Viewer::saveDotFiles()
         bool wroteFiles = false;
         if (graphNode)
         {
-            mx::MermaidFilter mermaidFilter;
-            std::string mmString = mermaidFilter.write(graphNode, outputs);
-            std::string mmFilename = baseFilename.asString() + "_" + mx::createValidName(elem->getNamePath()) + ".md";
-            writeTextFile(mmString, mmFilename);
+            bool writeMermaid = true;
+            bool writeDot = true;
 
-            //std::string dotString = graphNode->asStringDot();
-            //std::string dotFilename = baseFilename.asString() + "_" + graphNode->getName() + ".dot";
-            //writeTextFile(dotString, dotFilename);
+            if (writeMermaid)
+            {
+                mx::MermaidFilter mermaidFilter;
+                std::string mmString = mermaidFilter.write(graphNode, outputs);
+                std::string mmFilename = baseFilename.asString() + "_" + mx::createValidName(elem->getNamePath()) + ".md";
+                writeTextFile(mmString, mmFilename);
 
+                mx::MermaidFilter mermaidFilter2;
+                mmString = mermaidFilter2.write(graphNode, outputs, false);
+                mmFilename = baseFilename.asString() + "_" + mx::createValidName(elem->getNamePath()) + "_names.md";
+                writeTextFile(mmString, mmFilename);
+
+            }
+            if (writeDot)
+            {
+                std::string dotString = graphNode->asStringDot();
+                std::string dotFilename = baseFilename.asString() + "_" + graphNode->getName() + ".dot";
+                writeTextFile(dotString, dotFilename);
+            }
             wroteFiles = true;
         }
 
@@ -1840,10 +1858,10 @@ bool Viewer::keyboard_event(int key, int scancode, int action, int modifiers)
         return true;
     }
 
-    // Save each node graph in the current material as a dot file.
+    // Save each node graph in the current material as a diagram file.
     if (key == GLFW_KEY_D && action == GLFW_PRESS)
     {
-        saveDotFiles();
+        saveDiagrams();
         return true;
     }
 

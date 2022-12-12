@@ -57,8 +57,9 @@ class MX_FORMAT_API Filter
     /// Derived classes must implement this method
     /// @param graph GraphElement to write 
     /// @param roots Optional list of roots to filter what upstream elements to consider>
+    /// @param writeCategoryNames Use names of categories versus instance names for nodes. Default is true.
     /// @returns Buffer result
-    virtual string write(GraphElementPtr graph, const std::vector<OutputPtr> roots) = 0;
+    virtual string write(GraphElementPtr graph, const std::vector<OutputPtr> roots, bool writeCategoryNames=true) = 0;
 
   protected:
    StringSet _readFormats;
@@ -76,7 +77,7 @@ class MX_FORMAT_API MermaidFilter : public Filter
     virtual ~MermaidFilter() = default;
 
     const GraphElementPtr read(const string& inputBuffer) override;
-    string write(GraphElementPtr graph, const std::vector<OutputPtr> roots) override;
+    string write(GraphElementPtr graph, const std::vector<OutputPtr> roots, bool writeCategoryNames=true) override;
 };
 
 
