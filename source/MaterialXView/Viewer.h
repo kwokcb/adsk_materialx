@@ -15,6 +15,8 @@
 
 #include <MaterialXCore/Unit.h>
 
+#include <MaterialXFormat/GraphIO.h>
+
 namespace mx = MaterialX;
 namespace ng = nanogui;
 
@@ -422,6 +424,9 @@ class Viewer : public ng::Screen
     unsigned int _bakeWidth;
     unsigned int _bakeHeight;
     mx::FilePath _bakeFilename;
+
+    // GraphElement IO
+    mx::GraphIORegistryPtr _graphIORegistry;
 };
 
 extern const mx::Vector3 DEFAULT_CAMERA_POSITION;

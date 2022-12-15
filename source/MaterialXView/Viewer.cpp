@@ -22,7 +22,6 @@
 
 #include <MaterialXFormat/Environ.h>
 #include <MaterialXFormat/Util.h>
-#include <MaterialXFormat/GraphIO.h>
 
 #include <nanogui/icons.h>
 #include <nanogui/messagedialog.h>
@@ -308,6 +307,10 @@ Viewer::Viewer(const std::string& materialFilename,
 
     // Register the GLSL implementation for <viewdir> used by the environment shader.
     _genContext.getShaderGenerator().registerImplementation("IM_viewdir_vector3_" + mx::GlslShaderGenerator::TARGET, ViewDirGlsl::create);
+
+    _graphIORegistry = mx::GraphIORegistry::create();    
+    _graphIORegistry->addGraphIO(mx::MermaidGraphIO::create());
+    _graphIORegistry->addGraphIO(mx::DotGraphIO::create());
 }
 
 void Viewer::initialize()
@@ -1609,13 +1612,14 @@ void Viewer::saveDiagrams()
 
             if (writeMermaid)
             {
-                mx::MermaidGraphIO mermaidIO;
-                std::string mmString = mermaidIO.write(graphNode, outputs);
+                //mx::MermaidGraphIO mermaidIO;
+                //std::string mmString = mermaidIO.write(graphNode, outputs);
+                std::string mmString = _graphIORegistry->write("md", graphNode, outputs, true);
                 std::string mmFilename = baseFilename.asString() + "_" + mx::createValidName(elem->getNamePath()) + ".md";
                 writeTextFile(mmString, mmFilename);
 
-                mx::MermaidGraphIO mermaidIO2;
-                mmString = mermaidIO2.write(graphNode, outputs, false);
+                //mx::MermaidGraphIO mermaidIO2;
+                mmString = _graphIORegistry->write("md", graphNode, outputs, false);
                 mmFilename = baseFilename.asString() + "_" + mx::createValidName(elem->getNamePath()) + "_names.md";
                 writeTextFile(mmString, mmFilename);
 

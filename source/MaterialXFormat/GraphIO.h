@@ -18,15 +18,32 @@
 
 MATERIALX_NAMESPACE_BEGIN
 
+class GraphIO;
+class DotGraphIO;
+class MermaidGraphIO;
+
+/// A shared pointer to a GraphIO
+using GraphIOPtr = shared_ptr<GraphIO>;
+/// A shared pointer to a const GraphIO
+using ConstGraphIOPtr = shared_ptr<const GraphIO>;
+
+/// A shared pointer to a DotGraphIO
+using DotGraphIOPtr = shared_ptr<DotGraphIO>;
+/// A shared pointer to a const GraphIO
+using ConstDotGraphIOPtr = shared_ptr<const DotGraphIO>;
+
+/// A shared pointer to a MermaidGraphIO
+using MermaidGraphIOPtr = shared_ptr<MermaidGraphIO>;
+/// A shared pointer to a const MermaidGraphIO
+using ConstMermaidGraphIOPtr = shared_ptr<const MermaidGraphIO>;
+
+
 /// @class GraphIO
 /// <summary>
-///     Interface defining classes which can either read or write a given non-MaterialX GraphElement
-///     to or from MaterialX respectively.
-///
-///     The class indicates which formats are supported and may either support reading / writing or
-///     both.
-///
-///     The formatted input is assumed to be readable from and / or writeable to a string buffer
+///     Interface defining classes which can write a given non-MaterialX GraphElement
+///     to another format.
+///     The class indicates which formats are supported by string. 
+///     The formatted input is assumed to be writeable to a string buffer
 /// </summary>
 class MX_FORMAT_API GraphIO
 {
@@ -34,24 +51,11 @@ class MX_FORMAT_API GraphIO
     GraphIO(){};
     virtual ~GraphIO(){};
 
-    /// Returns list of formats that the GraphIO can read and convert to MaterialX
-    /// @return List of supported formats</returns>
-    const StringSet& readFormats() const
-    {
-        return _readFormats;
-    }
-
     /// Returns a list of formats that the GraphIO can convert from MaterialX to a given format
-    const StringSet& writeFormats() const
+    const StringSet& supportsFormats() const
     {
-        return _writeFormats;
+        return _formats;
     }
-
-    /// Parse the input buffer and return a GraphElement
-    /// Derived classes must implement this method
-    /// @param inputBuffer Buffer to read from
-    /// @return GraphElement result from converting the input
-    virtual const GraphElementPtr read(const string& inputBuffer) = 0;
 
     /// Traverse a graph and return a string
     /// Derived classes must implement this method
@@ -62,8 +66,7 @@ class MX_FORMAT_API GraphIO
     virtual string write(GraphElementPtr graph, const std::vector<OutputPtr> roots, bool writeCategoryNames = true) = 0;
 
   protected:
-    StringSet _readFormats;
-    StringSet _writeFormats;
+    StringSet _formats;
 };
 
 class MX_FORMAT_API DotGraphIO : public GraphIO
@@ -71,18 +74,13 @@ class MX_FORMAT_API DotGraphIO : public GraphIO
   public:
     DotGraphIO()
     {
-        _writeFormats.insert("dot");
+        _formats.insert("dot");
     }
     virtual ~DotGraphIO() = default;
 
-    const GraphElementPtr read(const string& inputBuffer) override 
-    {
-      return nullptr;
-    }
-    string write(GraphElementPtr graph, const std::vector<OutputPtr> roots, bool writeCategoryNames = true) override
-    {
-      return EMPTY_STRING;
-    }
+    static DotGraphIOPtr create();
+
+    string write(GraphElementPtr graph, const std::vector<OutputPtr> roots, bool writeCategoryNames = true) override;
 };
 
 class MX_FORMAT_API MermaidGraphIO : public GraphIO
@@ -90,12 +88,14 @@ class MX_FORMAT_API MermaidGraphIO : public GraphIO
   public:
     MermaidGraphIO()
     {
-        _writeFormats.insert("md");
-        _writeFormats.insert("mmd");
+        _formats.insert("md");
+        _formats.insert("mmd");
     }
     virtual ~MermaidGraphIO() = default;
 
-    const GraphElementPtr read(const string& inputBuffer) override;
+    /// Creator
+    static MermaidGraphIOPtr create();
+
     string write(GraphElementPtr graph, const std::vector<OutputPtr> roots, bool writeCategoryNames = true) override;
 
   protected:
@@ -107,6 +107,41 @@ class MX_FORMAT_API MermaidGraphIO : public GraphIO
     /// </summary>
     string addNodeToSubgraph(std::unordered_map<string, StringSet>& subGraphs, const ElementPtr node, const string& label) const;
 };
+
+/// Map of graph IO
+using GraphIOPtrMap = std::unordered_map<string, std::vector<GraphIOPtr>>;
+
+/// GraphIO registry
+class GraphIORegistry;
+using GraphIORegistryPtr = std::shared_ptr<GraphIORegistry>;
+
+/// @class GraphIORegistry
+/// A registry for graph IO.
+class MX_FORMAT_API GraphIORegistry
+{
+  public:
+    virtual ~GraphIORegistry() { }
+
+    /// Creator
+    static GraphIORegistryPtr create();
+
+    /// Add a graph IO 
+    void addGraphIO(GraphIOPtr graphIO);
+
+    /// 
+    string write(const string& format, GraphElementPtr graph, const std::vector<OutputPtr> roots, 
+                bool writeCategoryNames = true);
+
+  private:
+    GraphIORegistry(const GraphIORegistry&) = delete;
+    GraphIORegistry() { }
+
+    GraphIORegistry& operator=(const GraphIORegistry&) = delete;
+
+  private:
+    GraphIOPtrMap _graphIOs;
+};
+
 
 MATERIALX_NAMESPACE_END
 

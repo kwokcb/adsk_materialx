@@ -5,11 +5,103 @@
 
 #include <MaterialXFormat/GraphIO.h>
 
+#include <iostream>
+
 MATERIALX_NAMESPACE_BEGIN
 
-const GraphElementPtr MermaidGraphIO::read(const string&)
+DotGraphIOPtr DotGraphIO::create()
 {
-    return nullptr;
+    return std::shared_ptr<DotGraphIO>(new DotGraphIO());
+}
+
+string DotGraphIO::write(GraphElementPtr graph, const std::vector<OutputPtr> roots, bool writeCategoryNames)
+{
+    string dot = "digraph {\n";
+
+    // Create a unique name for each child element.
+    vector<ElementPtr> children = graph->topologicalSort();
+    StringMap nameMap;
+    StringSet nameSet;
+    for (ElementPtr elem : children)
+    {
+        string uniqueName = elem->getCategory();
+        while (nameSet.count(uniqueName))
+        {
+            uniqueName = incrementName(uniqueName);
+        }
+        nameMap[elem->getName()] = uniqueName;
+        nameSet.insert(uniqueName);
+    }
+
+    // Write out all nodes.
+    for (ElementPtr elem : children)
+    {
+        NodePtr node = elem->asA<Node>();
+        if (node)
+        {
+            dot += "    \"" + nameMap[node->getName()] + "\" ";
+            NodeDefPtr nodeDef = node->getNodeDef();
+            const string& nodeGroup = nodeDef ? nodeDef->getNodeGroup() : EMPTY_STRING;
+            if (nodeGroup == NodeDef::CONDITIONAL_NODE_GROUP)
+            {
+                dot += "[shape=diamond];\n";
+            }
+            else
+            {
+                dot += "[shape=box];\n";
+            }
+        }
+    }
+
+    // Write out all connections.
+    std::set<Edge> processedEdges;
+    StringSet processedInterfaces;
+    for (OutputPtr output : graph->getOutputs())
+    {
+        for (Edge edge : output->traverseGraph())
+        {
+            if (!processedEdges.count(edge))
+            {
+                ElementPtr upstreamElem = edge.getUpstreamElement();
+                ElementPtr downstreamElem = edge.getDownstreamElement();
+                ElementPtr connectingElem = edge.getConnectingElement();
+
+                dot += "    \"" + nameMap[upstreamElem->getName()];
+                dot += "\" -> \"" + nameMap[downstreamElem->getName()];
+                dot += "\" [label=\"";
+                dot += connectingElem ? connectingElem->getName() : EMPTY_STRING;
+                dot += "\"];\n";
+
+                NodePtr upstreamNode = upstreamElem->asA<Node>();
+                if (upstreamNode && !processedInterfaces.count(upstreamNode->getName()))
+                {
+                    for (InputPtr input : upstreamNode->getInputs())
+                    {
+                        if (input->hasInterfaceName())
+                        {
+                            dot += "    \"" + input->getInterfaceName();
+                            dot += "\" -> \"" + nameMap[upstreamElem->getName()];
+                            dot += "\" [label=\"";
+                            dot += input->getName();
+                            dot += "\"];\n";
+                        }
+                    }
+                    processedInterfaces.insert(upstreamNode->getName());
+                }
+
+                processedEdges.insert(edge);
+            }
+        }
+    }
+
+    dot += "}\n";
+
+    return dot;
+}
+
+MermaidGraphIOPtr MermaidGraphIO::create()
+{
+    return std::shared_ptr<MermaidGraphIO>(new MermaidGraphIO());
 }
 
 string MermaidGraphIO::addNodeToSubgraph(std::unordered_map<string, StringSet>& subGraphs, const ElementPtr node, const string& label) const
@@ -218,6 +310,46 @@ string MermaidGraphIO::write(GraphElementPtr graph, const std::vector<OutputPtr>
     outputString += "```\n";
 
     return outputString;
+}
+
+GraphIORegistryPtr GraphIORegistry::create()
+{
+    return std::shared_ptr<GraphIORegistry>(new GraphIORegistry());
+}
+
+void GraphIORegistry::addGraphIO(GraphIOPtr graphIO)
+{
+    if (graphIO)
+    {
+        const StringSet& formats = graphIO->supportsFormats();
+        for (const auto& format : formats)
+        {
+            _graphIOs[format].push_back(graphIO);
+        }
+    }
+}
+
+string GraphIORegistry::write(const string& format, GraphElementPtr graph, const std::vector<OutputPtr> roots, 
+                bool writeCategoryNames)
+
+{
+    string result = EMPTY_STRING;
+    for (GraphIOPtr graphIO : _graphIOs[format])
+    {
+        try
+        {
+            result = graphIO->write(graph, roots, writeCategoryNames);
+        }
+        catch (std::exception& e)
+        {
+            std::cerr << "Exception in graph I/O library: " << e.what() << std::endl;
+        }
+        if (!result.empty())
+        {
+            return result;
+        }
+    }    
+    return result;
 }
 
 MATERIALX_NAMESPACE_END
