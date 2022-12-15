@@ -66,6 +66,22 @@ class MX_FORMAT_API GraphIO
     virtual string write(GraphElementPtr graph, const std::vector<OutputPtr> roots, bool writeCategoryNames = true) = 0;
 
   protected:
+    /// Add a Element label to a subgraph list. Given a node and label, the label will to bused to add an identifier to the subgraph list.
+    /// @param subGraphs Structure to maintain a list of unique node names per subgraph name. The subgraph name is the full path name.
+    /// @param node The parent of this node if it exists is the subgraph to add the label to
+    /// @param label The string used to create a uniquely labelled element in the subgraph. The subgraph path will be prepended to the lable
+    /// @return Derived label name
+    /// </summary>
+    string addNodeToSubgraph(std::unordered_map<string, StringSet>& subGraphs, const ElementPtr node, const string& label) const;
+
+    virtual string writeGraph(GraphElementPtr graph, const std::vector<OutputPtr> roots, bool writeCategoryNames = true);
+      
+    virtual string writeRootNode(const string& /*rootName*/,
+                                 const string& /*rootLabel*/)
+    {
+        return EMPTY_STRING;
+    }
+
     /// Write upstream node and label 
     /// @param 
     /// @param
@@ -112,6 +128,17 @@ class MX_FORMAT_API GraphIO
         return EMPTY_STRING;
     };
 
+    virtual string writeSubgraphs(std::unordered_map<string, StringSet> /*subGraphs*/)
+    {
+        return EMPTY_STRING;
+    }
+
+    virtual string writeGraphString(const string& /*graphString*/,
+        const string& /*orientation*/)
+    {
+        return EMPTY_STRING;
+    }
+
     StringSet _formats;
 };
 
@@ -145,13 +172,8 @@ class MX_FORMAT_API MermaidGraphIO : public GraphIO
     string write(GraphElementPtr graph, const std::vector<OutputPtr> roots, bool writeCategoryNames = true) override;
 
   protected:
-    /// Add a Element label to a subgraph list. Given a node and label, the label will to bused to add an identifier to the subgraph list.
-    /// @param subGraphs Structure to maintain a list of unique node names per subgraph name. The subgraph name is the full path name.
-    /// @param node The parent of this node if it exists is the subgraph to add the label to
-    /// @param label The string used to create a uniquely labelled element in the subgraph. The subgraph path will be prepended to the lable
-    /// @return Derived label name
-    /// </summary>
-    string addNodeToSubgraph(std::unordered_map<string, StringSet>& subGraphs, const ElementPtr node, const string& label) const;
+    string writeRootNode(const string& rootName, 
+                         const string&rootLabel) override;
 
     string writeUpstreamNode(
         const string& nodeName, 
@@ -169,6 +191,10 @@ class MX_FORMAT_API MermaidGraphIO : public GraphIO
         const string& nodeName,
         const string& nodeLabel, 
         const string& category) override;
+
+    string writeSubgraphs(
+        std::unordered_map<string, StringSet> subGraphs) override;
+    string writeGraphString(const string& graphString, const string& orientation) override;
 };
 
 /// Map of graph IO

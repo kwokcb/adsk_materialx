@@ -9,103 +9,11 @@
 
 MATERIALX_NAMESPACE_BEGIN
 
-DotGraphIOPtr DotGraphIO::create()
-{
-    return std::shared_ptr<DotGraphIO>(new DotGraphIO());
-}
+static string GRAPH_INDENT = "    ";
 
-string DotGraphIO::write(GraphElementPtr graph, const std::vector<OutputPtr> /*roots*/, bool writeCategoryNames)
-{
-    string dot = "digraph {\n";
+// Base class methods
 
-    // Create a unique name for each child element.
-    // Either use the category name or the path name
-    vector<ElementPtr> children = graph->topologicalSort();
-    StringMap nameMap;
-    StringSet nameSet;
-    for (ElementPtr elem : children)
-    {
-        string uniqueName = writeCategoryNames ? elem->getCategory() : createValidName(elem->getNamePath());
-        while (nameSet.count(uniqueName))
-        {
-            uniqueName = incrementName(uniqueName);
-        }
-        nameMap[elem->getName()] = uniqueName;
-        nameSet.insert(uniqueName);
-    }
-
-    // Write out all nodes.
-    for (ElementPtr elem : children)
-    {
-        NodePtr node = elem->asA<Node>();
-        if (node)
-        {
-            dot += "    \"" + nameMap[node->getName()] + "\" ";
-            NodeDefPtr nodeDef = node->getNodeDef();
-            const string& nodeGroup = nodeDef ? nodeDef->getNodeGroup() : EMPTY_STRING;
-            if (nodeGroup == NodeDef::CONDITIONAL_NODE_GROUP)
-            {
-                dot += "[shape=diamond];\n";
-            }
-            else
-            {
-                dot += "[shape=box];\n";
-            }
-        }
-    }
-
-    // Write out all connections.
-    std::set<Edge> processedEdges;
-    StringSet processedInterfaces;
-    for (OutputPtr output : graph->getOutputs())
-    {
-        for (Edge edge : output->traverseGraph())
-        {
-            if (!processedEdges.count(edge))
-            {
-                ElementPtr upstreamElem = edge.getUpstreamElement();
-                ElementPtr downstreamElem = edge.getDownstreamElement();
-                ElementPtr connectingElem = edge.getConnectingElement();
-
-                dot += "    \"" + nameMap[upstreamElem->getName()];
-                dot += "\" -> \"" + nameMap[downstreamElem->getName()];
-                dot += "\" [label=\"";
-                dot += connectingElem ? connectingElem->getName() : EMPTY_STRING;
-                dot += "\"];\n";
-
-                NodePtr upstreamNode = upstreamElem->asA<Node>();
-                if (upstreamNode && !processedInterfaces.count(upstreamNode->getName()))
-                {
-                    for (InputPtr input : upstreamNode->getInputs())
-                    {
-                        if (input->hasInterfaceName())
-                        {
-                            dot += "    \"" + input->getInterfaceName();
-                            dot += "\" -> \"" + nameMap[upstreamElem->getName()];
-                            dot += "\" [label=\"";
-                            dot += input->getName();
-                            dot += "\"];\n";
-                        }
-                    }
-                    processedInterfaces.insert(upstreamNode->getName());
-                }
-
-                processedEdges.insert(edge);
-            }
-        }
-    }
-
-    dot += "}\n";
-
-    return dot;
-}
-
-MermaidGraphIOPtr MermaidGraphIO::create()
-{
-    return std::shared_ptr<MermaidGraphIO>(new MermaidGraphIO());
-}
-
-string MermaidGraphIO::addNodeToSubgraph(std::unordered_map<string, StringSet>& subGraphs, const ElementPtr node, const string& label) const
+string GraphIO::addNodeToSubgraph(std::unordered_map<string, StringSet>& subGraphs, const ElementPtr node, const string& label) const
 {   
     if (!node)
     {
@@ -140,68 +48,7 @@ string MermaidGraphIO::addNodeToSubgraph(std::unordered_map<string, StringSet>& 
     return subgraphNodeName;
 }
 
-string MermaidGraphIO::writeUpstreamNode(const string& nodeName,
-    const string& nodeLabel)
-{
-    return ("    " + nodeName + "[" + nodeLabel + "]");
-}
-
-string MermaidGraphIO::writeConnectingElement(const string& outputName,
-    const string& outputLabel, const string& inputLabel)
-{
-    string result;
-    if (!inputLabel.empty())
-    {
-        if (!outputLabel.empty() && !outputName.empty())
-        {
-            result = " --> " + outputName + "([" + outputLabel + "])" +
-                " --" + inputLabel + "--> ";
-        }
-        else
-        {
-            result = " --" + inputLabel + "--> ";
-        }
-    }
-    else
-    {
-        result = " --> ";
-    }
-
-    return result;
-}
-
-string MermaidGraphIO::writeDownstreamNode(const string& nodeName,
-    const string& nodeLabel, const string& category)
-{
-    string result;
-    if (category != Output::CATEGORY)
-    {
-        result = nodeName + "[" + nodeLabel + "]" + "\n";
-    }
-    else
-    {
-        result = nodeName + "([" + nodeLabel + "])" + "\n";
-        result += "    style " + nodeName + " fill:#1b1,color:#111\n";
-    }
-    return result;
-}
-
-string MermaidGraphIO::writeInterfaceConnection(
-    const string& interfaceId,
-    const string& interfaceInputName,
-    const string& inputName,
-    const string& inputNodeName)
-{
-    string result;
-    result = "    " + interfaceId + "([" + interfaceInputName + "])";
-    result += " ==." + inputName;
-    result += "==> " + inputNodeName + "\n";
-    result += "    style " + interfaceId + " fill:#0bb,color:#111\n";
-
-    return result;
-}
-
-string MermaidGraphIO::write(GraphElementPtr graph, const std::vector<OutputPtr> roots, bool writeCategoryNames)
+string GraphIO::writeGraph(GraphElementPtr graph, const std::vector<OutputPtr> roots, bool writeCategoryNames)
 {
     string currentGraphString;
 
@@ -257,8 +104,6 @@ string MermaidGraphIO::write(GraphElementPtr graph, const std::vector<OutputPtr>
                 string upstreamId = addNodeToSubgraph(subGraphs, upstreamElem, upstreamElem->getName());
                 currentGraphString += writeUpstreamNode(upstreamId,
                     (writeCategoryNames ? upstreamElem->getCategory() : upstreamId));
-                //currentGraphString += "    " + upstreamLabel + "[" + 
-                //    (writeCategoryNames ? upstreamElem->getCategory() : upstreamLabel) + "]";
 
                 // Add connecting edges
                 //
@@ -275,17 +120,7 @@ string MermaidGraphIO::write(GraphElementPtr graph, const std::vector<OutputPtr>
                         // Add the output to parent subgraph if any
                         // Upstream to Output connection
                         outputPort = addNodeToSubgraph(subGraphs, upstreamElem, outputLabel);                        
-                        //connectionString = " --> " + outputPort + "([" + outputLabel + "])" +
-                        //    " --" + inputLabel + "--> ";
                     }
-                    else
-                    {
-                        //connectionString = " --" + inputLabel + "--> ";
-                    }
-                }
-                else
-                {
-                    //connectionString = "--> ";
                 }
                 currentGraphString += writeConnectingElement(outputPort, outputLabel, inputLabel);
 
@@ -295,25 +130,7 @@ string MermaidGraphIO::write(GraphElementPtr graph, const std::vector<OutputPtr>
                 string downstreamId = addNodeToSubgraph(subGraphs, downstreamElem, downstreamName);                        
 
                 string dowstreamLabel = writeCategoryNames ? downstreamCategory : downstreamName;
-#if 0
-                if (!downstreamElem->isA<Output>())
-                {
-                    currentGraphString += downstreamId + 
-                        "[" + (writeCategoryNames ? downstreamCategory : downstreamName) + "]" + "\n";
-                }
-                else
-                {
-                    currentGraphString += downstreamId + 
-                        "([" + (writeCategoryNames ? downstreamCategory : downstreamName) + "])" + "\n";
-                    currentGraphString += "    style " + downstreamId + " fill:#1b1,color:#111\n";
-                }
-#endif
                 currentGraphString += writeDownstreamNode(downstreamId, dowstreamLabel, downstreamCategory);
-
-                if (!outputPort.empty())
-                {
-                    currentGraphString += "    style " + outputPort + " fill:#1b1,color:#111\n";
-                }
 
                 NodePtr upstreamNode = upstreamElem->asA<Node>();
                 const string upstreamNodeName = upstreamNode ? upstreamNode->getName() : EMPTY_STRING;
@@ -347,9 +164,6 @@ string MermaidGraphIO::write(GraphElementPtr graph, const std::vector<OutputPtr>
                                 currentGraphString += 
                                     writeInterfaceConnection(graphInterfaceName, interfaceInputName,
                                                              inputName, interiorNodeName);
-                                //currentGraphString += "    " + graphInterfaceName + "([" + interfaceInputName + "])";
-                                //currentGraphString += " ==." + inputName + "==> " + interiorNodeName + "\n";
-                                //currentGraphString += "    style " + graphInterfaceName + " fill:#0bb,color:#111\n";
                             }
                         }
                     }
@@ -361,31 +175,221 @@ string MermaidGraphIO::write(GraphElementPtr graph, const std::vector<OutputPtr>
         if (!processedAny)
         {
             // Only add in the root node if no connections found during traversal
-            const string rootNamePath = root->getNamePath();
-            const string rootNameCategory = root->getCategory();
-            currentGraphString += "   " + createValidName(rootNamePath) + "[" + 
-                (writeCategoryNames ? rootNameCategory : rootNamePath) + "]\n";
+            const string rootName = createValidName(root->getNamePath());
+            const string rootLabel= writeCategoryNames ? root->getCategory() : rootName;
+            currentGraphString += writeRootNode(rootName, rootLabel);
         }
     }
 
     // Add output for nodes in subgraphs
-    for (auto subGraph : subGraphs)
-    {
-        currentGraphString += "  subgraph " + subGraph.first + "\n";
-        for (auto item : subGraph.second)
-        {
-            currentGraphString += "    " + item + "\n";
-        }
-        currentGraphString += "  end\n";
-    }
+    currentGraphString += writeSubgraphs(subGraphs);
 
     // Output entire graph
-    string outputString = "```mermaid\n";
-    outputString += "graph TD;\n";
-    outputString += currentGraphString;
-    outputString += "```\n";
+    const string orientation = "TD";
+    string outputString = writeGraphString(currentGraphString, orientation);
 
     return outputString;
+}
+
+// dot class methods
+
+DotGraphIOPtr DotGraphIO::create()
+{
+    return std::shared_ptr<DotGraphIO>(new DotGraphIO());
+}
+
+string DotGraphIO::write(GraphElementPtr graph, const std::vector<OutputPtr> /*roots*/, bool writeCategoryNames)
+{
+    string dot = "digraph {\n";
+
+    // Create a unique name for each child element.
+    // Either use the category name or the path name
+    vector<ElementPtr> children = graph->topologicalSort();
+    StringMap nameMap;
+    StringSet nameSet;
+    for (ElementPtr elem : children)
+    {
+        string uniqueName = writeCategoryNames ? elem->getCategory() : createValidName(elem->getNamePath());
+        while (nameSet.count(uniqueName))
+        {
+            uniqueName = incrementName(uniqueName);
+        }
+        nameMap[elem->getName()] = uniqueName;
+        nameSet.insert(uniqueName);
+    }
+
+    // Write out all nodes.
+    for (ElementPtr elem : children)
+    {
+        NodePtr node = elem->asA<Node>();
+        if (node)
+        {
+            dot += GRAPH_INDENT + "\"" + nameMap[node->getName()] + "\" ";
+            NodeDefPtr nodeDef = node->getNodeDef();
+            const string& nodeGroup = nodeDef ? nodeDef->getNodeGroup() : EMPTY_STRING;
+            if (nodeGroup == NodeDef::CONDITIONAL_NODE_GROUP)
+            {
+                dot += "[shape=diamond];\n";
+            }
+            else
+            {
+                dot += "[shape=box];\n";
+            }
+        }
+    }
+
+    // Write out all connections.
+    std::set<Edge> processedEdges;
+    StringSet processedInterfaces;
+    for (OutputPtr output : graph->getOutputs())
+    {
+        for (Edge edge : output->traverseGraph())
+        {
+            if (!processedEdges.count(edge))
+            {
+                ElementPtr upstreamElem = edge.getUpstreamElement();
+                ElementPtr downstreamElem = edge.getDownstreamElement();
+                ElementPtr connectingElem = edge.getConnectingElement();
+
+                dot += GRAPH_INDENT + "\"" + nameMap[upstreamElem->getName()];
+                dot += "\" -> \"" + nameMap[downstreamElem->getName()];
+                dot += "\" [label=\"";
+                dot += connectingElem ? connectingElem->getName() : EMPTY_STRING;
+                dot += "\"];\n";
+
+                NodePtr upstreamNode = upstreamElem->asA<Node>();
+                if (upstreamNode && !processedInterfaces.count(upstreamNode->getName()))
+                {
+                    for (InputPtr input : upstreamNode->getInputs())
+                    {
+                        if (input->hasInterfaceName())
+                        {
+                            dot += GRAPH_INDENT + "\"" + input->getInterfaceName();
+                            dot += "\" -> \"" + nameMap[upstreamElem->getName()];
+                            dot += "\" [label=\"";
+                            dot += input->getName();
+                            dot += "\"];\n";
+                        }
+                    }
+                    processedInterfaces.insert(upstreamNode->getName());
+                }
+
+                processedEdges.insert(edge);
+            }
+        }
+    }
+
+    dot += "}\n";
+
+    return dot;
+}
+
+// Mermaid graph methods
+
+MermaidGraphIOPtr MermaidGraphIO::create()
+{
+    return std::shared_ptr<MermaidGraphIO>(new MermaidGraphIO());
+}
+
+string MermaidGraphIO::writeUpstreamNode(const string& nodeName,
+    const string& nodeLabel)
+{
+    return (GRAPH_INDENT + nodeName + "[" + nodeLabel + "]");
+}
+
+string MermaidGraphIO::writeConnectingElement(const string& outputName,
+    const string& outputLabel, const string& inputLabel)
+{
+    string result;
+
+    if (!inputLabel.empty())
+    {
+        if (!outputLabel.empty() && !outputName.empty())
+        {
+            result = " --> " + outputName + "([" + outputLabel + "])\n";
+            result += GRAPH_INDENT + "style " + outputName + " fill:#1b1, color:#111\n";
+            result += GRAPH_INDENT + outputName + " --" + inputLabel + "--> ";
+        }
+        else
+        {
+            result = " --" + inputLabel + "--> ";
+        }
+    }
+    else
+    {
+        result = " --> ";
+    }
+
+    return result;
+}
+
+string MermaidGraphIO::writeDownstreamNode(const string& nodeName,
+    const string& nodeLabel, const string& category)
+{
+    string result;
+    if (category != Output::CATEGORY)
+    {
+        result = nodeName + "[" + nodeLabel + "]" + "\n";
+    }
+    else
+    {
+        result = nodeName + "([" + nodeLabel + "])" + "\n";
+        result += GRAPH_INDENT + "style " + nodeName + " fill:#1b1, color:#111\n";
+    }
+    return result;
+}
+
+string MermaidGraphIO::writeInterfaceConnection(
+    const string& interfaceId,
+    const string& interfaceInputName,
+    const string& inputName,
+    const string& inputNodeName)
+{
+    string result;
+    result = GRAPH_INDENT + interfaceId + "([" + interfaceInputName + "])";
+    result += " ==." + inputName;
+    result += "==> " + inputNodeName + "\n";
+    result += GRAPH_INDENT + "style " + interfaceId + " fill:#0bb, color:#111\n";
+
+    return result;
+}
+
+string MermaidGraphIO::writeRootNode(const string& rootName,
+                                     const string& rootLabel) 
+{
+    string result = "   " + rootName + "[" + rootLabel + "]\n";
+    return result;
+}
+
+string MermaidGraphIO::writeSubgraphs(
+    std::unordered_map<string, StringSet> subGraphs)
+{
+    string result;
+    for (auto subGraph : subGraphs)
+    {
+        result += "  subgraph " + subGraph.first + "\n";
+        for (auto item : subGraph.second)
+        {
+            result += GRAPH_INDENT + item + "\n";
+        }
+        result += "  end\n";
+    }
+    return result;
+}
+
+string MermaidGraphIO::writeGraphString(const string& graphString, const string& orientation)
+{
+    string result = "```mermaid\n";
+    result += "graph " + orientation + "; \n";
+    result += graphString;
+    result += "```\n";
+
+    return result;
+}
+
+string MermaidGraphIO::write(GraphElementPtr graph, const std::vector<OutputPtr> roots, bool writeCategoryNames)
+{
+    return writeGraph(graph, roots, writeCategoryNames);
 }
 
 GraphIORegistryPtr GraphIORegistry::create()
