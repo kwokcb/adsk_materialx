@@ -14,17 +14,18 @@ DotGraphIOPtr DotGraphIO::create()
     return std::shared_ptr<DotGraphIO>(new DotGraphIO());
 }
 
-string DotGraphIO::write(GraphElementPtr graph, const std::vector<OutputPtr> roots, bool writeCategoryNames)
+string DotGraphIO::write(GraphElementPtr graph, const std::vector<OutputPtr> /*roots*/, bool writeCategoryNames)
 {
     string dot = "digraph {\n";
 
     // Create a unique name for each child element.
+    // Either use the category name or the path name
     vector<ElementPtr> children = graph->topologicalSort();
     StringMap nameMap;
     StringSet nameSet;
     for (ElementPtr elem : children)
     {
-        string uniqueName = elem->getCategory();
+        string uniqueName = writeCategoryNames ? elem->getCategory() : createValidName(elem->getNamePath());
         while (nameSet.count(uniqueName))
         {
             uniqueName = incrementName(uniqueName);
@@ -139,6 +140,67 @@ string MermaidGraphIO::addNodeToSubgraph(std::unordered_map<string, StringSet>& 
     return subgraphNodeName;
 }
 
+string MermaidGraphIO::writeUpstreamNode(const string& nodeName,
+    const string& nodeLabel)
+{
+    return ("    " + nodeName + "[" + nodeLabel + "]");
+}
+
+string MermaidGraphIO::writeConnectingElement(const string& outputName,
+    const string& outputLabel, const string& inputLabel)
+{
+    string result;
+    if (!inputLabel.empty())
+    {
+        if (!outputLabel.empty() && !outputName.empty())
+        {
+            result = " --> " + outputName + "([" + outputLabel + "])" +
+                " --" + inputLabel + "--> ";
+        }
+        else
+        {
+            result = " --" + inputLabel + "--> ";
+        }
+    }
+    else
+    {
+        result = " --> ";
+    }
+
+    return result;
+}
+
+string MermaidGraphIO::writeDownstreamNode(const string& nodeName,
+    const string& nodeLabel, const string& category)
+{
+    string result;
+    if (category != Output::CATEGORY)
+    {
+        result = nodeName + "[" + nodeLabel + "]" + "\n";
+    }
+    else
+    {
+        result = nodeName + "([" + nodeLabel + "])" + "\n";
+        result += "    style " + nodeName + " fill:#1b1,color:#111\n";
+    }
+    return result;
+}
+
+string MermaidGraphIO::writeInterfaceConnection(
+    const string& interfaceId,
+    const string& interfaceInputName,
+    const string& inputName,
+    const string& inputNodeName)
+{
+    string result;
+    result = "    " + interfaceId + "([" + interfaceInputName + "])";
+    result += " ==." + inputName;
+    result += "==> " + inputNodeName + "\n";
+    result += "    style " + interfaceId + " fill:#0bb,color:#111\n";
+
+    return result;
+}
+
 string MermaidGraphIO::write(GraphElementPtr graph, const std::vector<OutputPtr> roots, bool writeCategoryNames)
 {
     string currentGraphString;
@@ -192,56 +254,65 @@ string MermaidGraphIO::write(GraphElementPtr graph, const std::vector<OutputPtr>
                 // Add upstream nodes. 
                 // - Add list of unique nodes to parent subgraph if it exists
                 // - Output upstream node + label (id or category)
-                string upstreamLabel = addNodeToSubgraph(subGraphs, upstreamElem, upstreamElem->getName());
-                currentGraphString += "    " + upstreamLabel + "[" + 
-                    (writeCategoryNames ? upstreamElem->getCategory() : upstreamLabel) + "]";
+                string upstreamId = addNodeToSubgraph(subGraphs, upstreamElem, upstreamElem->getName());
+                currentGraphString += writeUpstreamNode(upstreamId,
+                    (writeCategoryNames ? upstreamElem->getCategory() : upstreamId));
+                //currentGraphString += "    " + upstreamLabel + "[" + 
+                //    (writeCategoryNames ? upstreamElem->getCategory() : upstreamLabel) + "]";
 
                 // Add connecting edges
                 //
-                string upStreamPortLabel;
+                string outputPort;
+                string inputLabel;
+                string outputLabel;
                 if (connectingElem)
                 {
-                    string connectingElementString = "." + connectingElem->getName();
+                    inputLabel = "." + connectingElem->getName();
                     // Check for an explicit output name
-                    string upStreamPort = connectingElem->getAttribute(PortElement::OUTPUT_ATTRIBUTE);
-                    if (!upStreamPort.empty())
+                    outputLabel = connectingElem->getAttribute(PortElement::OUTPUT_ATTRIBUTE);
+                    if (!outputLabel.empty())
                     {
                         // Add the output to parent subgraph if any
                         // Upstream to Output connection
-                        upStreamPortLabel = addNodeToSubgraph(subGraphs, upstreamElem, upStreamPort);                        
-                        currentGraphString += " --> " + upStreamPortLabel + "([" + upStreamPort + "])" +
-                            " --" + connectingElementString + "--> ";
+                        outputPort = addNodeToSubgraph(subGraphs, upstreamElem, outputLabel);                        
+                        //connectionString = " --> " + outputPort + "([" + outputLabel + "])" +
+                        //    " --" + inputLabel + "--> ";
                     }
                     else
                     {
-                        currentGraphString += " --" + connectingElementString + "--> ";
+                        //connectionString = " --" + inputLabel + "--> ";
                     }
                 }
                 else
                 {
-                    currentGraphString += "--> ";
+                    //connectionString = "--> ";
                 }
+                currentGraphString += writeConnectingElement(outputPort, outputLabel, inputLabel);
 
                 // Add downstream
                 string downstreamCategory = downstreamElem->getCategory();
                 string downstreamName = downstreamElem->getName();
-                string downstreamLabel = addNodeToSubgraph(subGraphs, downstreamElem, downstreamName);                        
+                string downstreamId = addNodeToSubgraph(subGraphs, downstreamElem, downstreamName);                        
 
+                string dowstreamLabel = writeCategoryNames ? downstreamCategory : downstreamName;
+#if 0
                 if (!downstreamElem->isA<Output>())
                 {
-                    currentGraphString += downstreamLabel + 
+                    currentGraphString += downstreamId + 
                         "[" + (writeCategoryNames ? downstreamCategory : downstreamName) + "]" + "\n";
                 }
                 else
                 {
-                    currentGraphString += downstreamLabel + 
+                    currentGraphString += downstreamId + 
                         "([" + (writeCategoryNames ? downstreamCategory : downstreamName) + "])" + "\n";
-                    currentGraphString += "    style " + downstreamLabel + " fill:#1b1,color:#111\n";
+                    currentGraphString += "    style " + downstreamId + " fill:#1b1,color:#111\n";
                 }
+#endif
+                currentGraphString += writeDownstreamNode(downstreamId, dowstreamLabel, downstreamCategory);
 
-                if (!upStreamPortLabel.empty())
+                if (!outputPort.empty())
                 {
-                    currentGraphString += "    style " + upStreamPortLabel + " fill:#1b1,color:#111\n";
+                    currentGraphString += "    style " + outputPort + " fill:#1b1,color:#111\n";
                 }
 
                 NodePtr upstreamNode = upstreamElem->asA<Node>();
@@ -271,9 +342,14 @@ string MermaidGraphIO::write(GraphElementPtr graph, const std::vector<OutputPtr>
                                 const string interiorNodeName = createValidName(interiorNodeLabel) + "[" + 
                                     (writeCategoryNames ? interiorNodeCategory : interiorNodeLabel) + "]";
 
-                                currentGraphString += "    " + graphInterfaceName + "([" + input->getInterfaceName() + "])";
-                                currentGraphString += " ==." + input->getName() + "==> " + interiorNodeName + "\n";
-                                currentGraphString += "    style " + graphInterfaceName + " fill:#0bb,color:#111\n";
+                                const string interfaceInputName = input->getInterfaceName();
+                                const string inputName = input->getName();
+                                currentGraphString += 
+                                    writeInterfaceConnection(graphInterfaceName, interfaceInputName,
+                                                             inputName, interiorNodeName);
+                                //currentGraphString += "    " + graphInterfaceName + "([" + interfaceInputName + "])";
+                                //currentGraphString += " ==." + inputName + "==> " + interiorNodeName + "\n";
+                                //currentGraphString += "    style " + graphInterfaceName + " fill:#0bb,color:#111\n";
                             }
                         }
                     }

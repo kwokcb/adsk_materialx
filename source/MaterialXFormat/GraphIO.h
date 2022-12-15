@@ -66,6 +66,52 @@ class MX_FORMAT_API GraphIO
     virtual string write(GraphElementPtr graph, const std::vector<OutputPtr> roots, bool writeCategoryNames = true) = 0;
 
   protected:
+    /// Write upstream node and label 
+    /// @param 
+    /// @param
+    /// @return
+    virtual string writeUpstreamNode(const string& /*nodeName*/,
+        const string& /*nodeLabel*/)
+    {
+        return EMPTY_STRING;
+    }
+
+    // Write the connection from an upstream node to a
+    // downstream node. Include upstream output and downstream
+    // inputs if specified
+    /// @param 
+    /// @param
+    /// @return
+    virtual string writeConnectingElement(const string& /*upstreamPortLabel*/,
+        const string& /*upstreamPort*/, const string& /*connectingElementString*/) 
+    {
+        return EMPTY_STRING;
+    }
+
+    /// Write interface connection
+    /// @param interafaceId Identifier for interface
+    /// @param interfaceInputName Identifier for interface input
+    /// @param inputName Name of input on interior node
+    /// @param inputNodeName Name of interior node
+    virtual string writeInterfaceConnection(
+        const string& /*interfaceId*/,
+        const string& /*interfaceInputName*/,
+        const string& /*inputName*/,
+        const string& /*inputNodeName*/)
+    {
+        return EMPTY_STRING;
+    }
+
+    /// Write downstream node and label
+    /// @param 
+    /// @param
+    /// @return
+    virtual string writeDownstreamNode(const string& /*nodeName*/,
+        const string& /*nodeLabel*/, const string& /*category*/) 
+    {
+        return EMPTY_STRING;
+    };
+
     StringSet _formats;
 };
 
@@ -106,6 +152,23 @@ class MX_FORMAT_API MermaidGraphIO : public GraphIO
     /// @return Derived label name
     /// </summary>
     string addNodeToSubgraph(std::unordered_map<string, StringSet>& subGraphs, const ElementPtr node, const string& label) const;
+
+    string writeUpstreamNode(
+        const string& nodeName, 
+        const string& nodeLabel) override;
+    string writeConnectingElement(
+        const string& outputName,
+        const string& outputLabel, 
+        const string& inputLabel) override;
+    string writeInterfaceConnection(
+        const string& /*interfaceId*/,
+        const string& /*interfaceInputName*/,
+        const string& /*inputName*/,
+        const string& /*inputNodeName*/) override;
+    string writeDownstreamNode(
+        const string& nodeName,
+        const string& nodeLabel, 
+        const string& category) override;
 };
 
 /// Map of graph IO
