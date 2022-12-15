@@ -182,8 +182,10 @@ string GraphIO::writeGraph(GraphElementPtr graph, const std::vector<OutputPtr> r
         }
     }
 
-    // Add output for nodes in subgraphs
-    currentGraphString += writeSubgraphs(subGraphs);
+    // Add output for nodes in subgraphs.
+    // Needs to be done before the graph for dot outout.
+    string subGraphString = writeSubgraphs(subGraphs);
+    currentGraphString = subGraphString + currentGraphString;
 
     // Output entire graph
     const string orientation = "TD";
@@ -204,7 +206,7 @@ string DotGraphIO::writeRootNode(const string& rootName,
 {
     string result;
     result += GRAPH_INDENT + rootName + " [label= \"" + rootLabel + "\"]\n";
-    //result += GRAPH_INDENT + nodeName + "[shape = box]\n";
+    result += GRAPH_INDENT + rootName + "[shape = box];\n";
     result += GRAPH_INDENT + rootName;
     return result;
 }
@@ -214,8 +216,8 @@ string DotGraphIO::writeUpstreamNode(
     const string& nodeLabel)
 {
     string result;
-    result += GRAPH_INDENT + nodeName + " [label= \"" + nodeLabel + "\"]\n";
-    //result += GRAPH_INDENT + nodeName + "[shape = box]\n";
+    result += GRAPH_INDENT + nodeName + " [label= \"" + nodeLabel + "\"];\n";
+    result += GRAPH_INDENT + nodeName + "[shape = box];\n";
     result += GRAPH_INDENT + nodeName;
     return result;
 }
@@ -234,14 +236,10 @@ string DotGraphIO::writeConnectingElement(
         {
             dot += outputName + ";\n";
             dot += GRAPH_INDENT + outputName + " [label= \"" + outputLabel + "\"];\n";
-            dot += GRAPH_INDENT + outputName + " [shape = box];\n";
+            //dot += GRAPH_INDENT + outputName + " [shape = doublecircle];\n";
             dot += GRAPH_INDENT + outputName + " -> ";
         }
     }
-
-    //dot += ;
-    //dot += inputLabel!.empty() ? inputLabel : EMPTY_STRING;
-    //dot += "\"];\n";
     
     return dot;
 }
@@ -254,21 +252,8 @@ string DotGraphIO::writeInterfaceConnection(
     const string& interiorNodeLabel)
 {
     string dot;
-/*
-Write interface:     
-    NG_BrickPattern_dirt_color[label="dirt_color"];
-    NG_BrickPattern_dirt_color -> NG_BrickPattern_node_mix_6[NG_BrickPattern/node_mix_6] [label="fg"];
-
-   string result;
-    result = GRAPH_INDENT + interfaceId + "([" + interfaceInputName + "])";
-    result += " ==." + inputName;
-    result += "==> " + inputNodeName + "\n";
-    result += GRAPH_INDENT + "style " + interfaceId + " fill:#0bb, color:#111\n";
-
-
-*/
-
     dot += GRAPH_INDENT + interfaceId + " [label=\"" + interfaceInputName + "\"];\n";
+    //dot += GRAPH_INDENT + interfaceId + " [shape = doublecircle];\n";
     dot += GRAPH_INDENT + interiorNodeId + " [label=\"" + interiorNodeLabel + "\"];\n";
     dot += GRAPH_INDENT + interfaceId + " -> " + interiorNodeId +
         " [label=" + GRAPH_QUOTE + "." + inputName + GRAPH_QUOTE + "];\n";
@@ -291,16 +276,37 @@ string DotGraphIO::writeDownstreamNode(
     result += ";\n";
     
     result += GRAPH_INDENT + nodeName + " [label= \"" + nodeLabel + "\"];\n";
-    //result += GRAPH_INDENT + nodeName + "[shape = box]\n";
+    result += GRAPH_INDENT + nodeName + "[shape = box];\n";
 
     return result;
 }
 
 string DotGraphIO::writeSubgraphs(
-    std::unordered_map<string, StringSet> /*subGraphs*/)
+    std::unordered_map<string, StringSet> subGraphs)
 {
-    // Not supported currently
     string result;
+    //result += GRAPH_INDENT + "fillcolor = white;\n";
+
+    unsigned int clusterNumber = 1;
+    const string CLUSTER_STRING = "cluster_";
+    for (auto subGraph : subGraphs)
+    {
+        // Note that the graph must start with the prefix "cluster"
+        result += GRAPH_INDENT + "subgraph " + CLUSTER_STRING + std::to_string(clusterNumber)+ "{\n";
+        result += GRAPH_INDENT + "  style = filled;\n";
+        result += GRAPH_INDENT + "  fillcolor = lightyellow;\n";
+        result += GRAPH_INDENT + "  color = black;\n";
+        result += GRAPH_INDENT + "  node[style = filled, fillcolor = white];\n";
+        result += GRAPH_INDENT + "  label = \"" + subGraph.first + "\";\n";
+
+        for (auto item : subGraph.second)
+        {
+            result += GRAPH_INDENT + "  " + item + "\n";
+        }
+        result += GRAPH_INDENT  + "}\n\n";
+
+        clusterNumber++;
+    }
     return result;
 }
 
