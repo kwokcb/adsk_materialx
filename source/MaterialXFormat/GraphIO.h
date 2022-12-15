@@ -113,7 +113,8 @@ class MX_FORMAT_API GraphIO
         const string& /*interfaceId*/,
         const string& /*interfaceInputName*/,
         const string& /*inputName*/,
-        const string& /*inputNodeName*/)
+        const string& /*interiorNodeId*/,
+        const string& /*interiorNodeLabel*/)
     {
         return EMPTY_STRING;
     }
@@ -123,7 +124,8 @@ class MX_FORMAT_API GraphIO
     /// @param
     /// @return
     virtual string writeDownstreamNode(const string& /*nodeName*/,
-        const string& /*nodeLabel*/, const string& /*category*/) 
+        const string& /*nodeLabel*/, const string& /*category*/,
+        const string& /*inputLabel*/)
     {
         return EMPTY_STRING;
     };
@@ -144,7 +146,7 @@ class MX_FORMAT_API GraphIO
 
 class MX_FORMAT_API DotGraphIO : public GraphIO
 {
-  public:
+public:
     DotGraphIO()
     {
         _formats.insert("dot");
@@ -154,7 +156,35 @@ class MX_FORMAT_API DotGraphIO : public GraphIO
     static DotGraphIOPtr create();
 
     string write(GraphElementPtr graph, const std::vector<OutputPtr> roots, bool writeCategoryNames = true) override;
+
+  protected:
+    string writeRootNode(const string& rootName,
+        const string& rootLabel) override;
+
+    string writeUpstreamNode(
+        const string& nodeName,
+        const string& nodeLabel) override;
+    string writeConnectingElement(
+        const string& outputName,
+        const string& outputLabel,
+        const string& inputLabel) override;
+    string writeInterfaceConnection(
+        const string& interfaceId,
+        const string& interfaceInputName,
+        const string& inputName,
+        const string& interiorNodeId,
+        const string& interiorNodeLabel) override;
+    string writeDownstreamNode(
+        const string& nodeName,
+        const string& nodeLabel,
+        const string& category,
+        const string& inputLabel) override;
+
+    string writeSubgraphs(
+        std::unordered_map<string, StringSet> subGraphs) override;
+    string writeGraphString(const string& graphString, const string& orientation) override;
 };
+    
 
 class MX_FORMAT_API MermaidGraphIO : public GraphIO
 {
@@ -183,14 +213,16 @@ class MX_FORMAT_API MermaidGraphIO : public GraphIO
         const string& outputLabel, 
         const string& inputLabel) override;
     string writeInterfaceConnection(
-        const string& /*interfaceId*/,
-        const string& /*interfaceInputName*/,
-        const string& /*inputName*/,
-        const string& /*inputNodeName*/) override;
+        const string& interfaceId,
+        const string& interfaceInputName,
+        const string& inputName,
+        const string& interiorNodeId,
+        const string& interiorNodeLabel) override;
     string writeDownstreamNode(
         const string& nodeName,
         const string& nodeLabel, 
-        const string& category) override;
+        const string& category, 
+        const string& inputLabel) override;
 
     string writeSubgraphs(
         std::unordered_map<string, StringSet> subGraphs) override;

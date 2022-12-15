@@ -1626,7 +1626,8 @@ void Viewer::saveDiagrams()
             }
             if (writeDot)
             {
-                std::string dotString = graphNode->asStringDot();
+                //std::string dotString = graphNode->asStringDot();
+                std::string dotString = _graphIORegistry->write("dot", graphNode, outputs, true);
                 std::string dotFilename = baseFilename.asString() + "_" + graphNode->getName() + ".dot";
                 writeTextFile(dotString, dotFilename);
             }

@@ -10,6 +10,7 @@
 MATERIALX_NAMESPACE_BEGIN
 
 static string GRAPH_INDENT = "    ";
+static string GRAPH_QUOTE = "\"";
 
 // Base class methods
 
@@ -130,7 +131,8 @@ string GraphIO::writeGraph(GraphElementPtr graph, const std::vector<OutputPtr> r
                 string downstreamId = addNodeToSubgraph(subGraphs, downstreamElem, downstreamName);                        
 
                 string dowstreamLabel = writeCategoryNames ? downstreamCategory : downstreamName;
-                currentGraphString += writeDownstreamNode(downstreamId, dowstreamLabel, downstreamCategory);
+                currentGraphString += writeDownstreamNode(downstreamId, dowstreamLabel, downstreamCategory,
+                                                          inputLabel);
 
                 NodePtr upstreamNode = upstreamElem->asA<Node>();
                 const string upstreamNodeName = upstreamNode ? upstreamNode->getName() : EMPTY_STRING;
@@ -154,16 +156,15 @@ string GraphIO::writeGraph(GraphElementPtr graph, const std::vector<OutputPtr> r
                             {
                                 string graphInterfaceName = addNodeToSubgraph(subGraphs, upstreamNode, input->getInterfaceName());                        
 
-                                const string interiorNodeLabel = upstreamElem->getNamePath();
+                                const string interiorNodeId = createValidName(upstreamElem->getNamePath());
                                 const string interiorNodeCategory = upstreamElem->getCategory();
-                                const string interiorNodeName = createValidName(interiorNodeLabel) + "[" + 
-                                    (writeCategoryNames ? interiorNodeCategory : interiorNodeLabel) + "]";
+                                const string interiorNodeLabel = writeCategoryNames ? interiorNodeCategory : interiorNodeId;
 
                                 const string interfaceInputName = input->getInterfaceName();
                                 const string inputName = input->getName();
                                 currentGraphString += 
                                     writeInterfaceConnection(graphInterfaceName, interfaceInputName,
-                                                             inputName, interiorNodeName);
+                                                             inputName, interiorNodeId, interiorNodeLabel);
                             }
                         }
                     }
@@ -198,8 +199,124 @@ DotGraphIOPtr DotGraphIO::create()
     return std::shared_ptr<DotGraphIO>(new DotGraphIO());
 }
 
-string DotGraphIO::write(GraphElementPtr graph, const std::vector<OutputPtr> /*roots*/, bool writeCategoryNames)
+string DotGraphIO::writeRootNode(const string& rootName,
+    const string& rootLabel)
 {
+    string result;
+    result += GRAPH_INDENT + rootName + " [label= \"" + rootLabel + "\"]\n";
+    //result += GRAPH_INDENT + nodeName + "[shape = box]\n";
+    result += GRAPH_INDENT + rootName;
+    return result;
+}
+
+string DotGraphIO::writeUpstreamNode(
+    const string& nodeName,
+    const string& nodeLabel)
+{
+    string result;
+    result += GRAPH_INDENT + nodeName + " [label= \"" + nodeLabel + "\"]\n";
+    //result += GRAPH_INDENT + nodeName + "[shape = box]\n";
+    result += GRAPH_INDENT + nodeName;
+    return result;
+}
+
+string DotGraphIO::writeConnectingElement(
+    const string& outputName,
+    const string& outputLabel,
+    const string& inputLabel)
+{
+    string dot;
+
+    dot += " -> ";
+    if (!inputLabel.empty())
+    {
+        if (!outputLabel.empty() && !outputName.empty())
+        {
+            dot += outputName + ";\n";
+            dot += GRAPH_INDENT + outputName + " [label= \"" + outputLabel + "\"];\n";
+            dot += GRAPH_INDENT + outputName + " [shape = box];\n";
+            dot += GRAPH_INDENT + outputName + " -> ";
+        }
+    }
+
+    //dot += ;
+    //dot += inputLabel!.empty() ? inputLabel : EMPTY_STRING;
+    //dot += "\"];\n";
+    
+    return dot;
+}
+
+string DotGraphIO::writeInterfaceConnection(
+    const string& interfaceId,
+    const string& interfaceInputName,
+    const string& inputName,
+    const string& interiorNodeId,
+    const string& interiorNodeLabel)
+{
+    string dot;
+/*
+Write interface:     
+    NG_BrickPattern_dirt_color[label="dirt_color"];
+    NG_BrickPattern_dirt_color -> NG_BrickPattern_node_mix_6[NG_BrickPattern/node_mix_6] [label="fg"];
+
+   string result;
+    result = GRAPH_INDENT + interfaceId + "([" + interfaceInputName + "])";
+    result += " ==." + inputName;
+    result += "==> " + inputNodeName + "\n";
+    result += GRAPH_INDENT + "style " + interfaceId + " fill:#0bb, color:#111\n";
+
+
+*/
+
+    dot += GRAPH_INDENT + interfaceId + " [label=\"" + interfaceInputName + "\"];\n";
+    dot += GRAPH_INDENT + interiorNodeId + " [label=\"" + interiorNodeLabel + "\"];\n";
+    dot += GRAPH_INDENT + interfaceId + " -> " + interiorNodeId +
+        " [label=" + GRAPH_QUOTE + "." + inputName + GRAPH_QUOTE + "];\n";
+
+    return dot;
+}
+
+string DotGraphIO::writeDownstreamNode(
+    const string& nodeName,
+    const string& nodeLabel,
+    const string& /*category*/, 
+    const string& inputLabel)
+{
+    string result;
+    result += GRAPH_INDENT + nodeName;
+    if (!inputLabel.empty())
+    {
+        result += " [label= \"" + inputLabel + "\"]";
+    }
+    result += ";\n";
+    
+    result += GRAPH_INDENT + nodeName + " [label= \"" + nodeLabel + "\"];\n";
+    //result += GRAPH_INDENT + nodeName + "[shape = box]\n";
+
+    return result;
+}
+
+string DotGraphIO::writeSubgraphs(
+    std::unordered_map<string, StringSet> /*subGraphs*/)
+{
+    // Not supported currently
+    string result;
+    return result;
+}
+
+string DotGraphIO::writeGraphString(const string& graphString, const string& /*orientation*/)
+{
+    string dot = "digraph {\n";
+    dot += graphString;
+    dot += "}\n";
+
+    return dot;
+}
+
+string DotGraphIO::write(GraphElementPtr graph, const std::vector<OutputPtr> roots, bool writeCategoryNames)
+{
+    return writeGraph(graph, roots, writeCategoryNames);
+#if 0
     string dot = "digraph {\n";
 
     // Create a unique name for each child element.
@@ -282,6 +399,7 @@ string DotGraphIO::write(GraphElementPtr graph, const std::vector<OutputPtr> /*r
     dot += "}\n";
 
     return dot;
+#endif
 }
 
 // Mermaid graph methods
@@ -324,7 +442,7 @@ string MermaidGraphIO::writeConnectingElement(const string& outputName,
 }
 
 string MermaidGraphIO::writeDownstreamNode(const string& nodeName,
-    const string& nodeLabel, const string& category)
+    const string& nodeLabel, const string& category, const string& /*inputLabel*/)
 {
     string result;
     if (category != Output::CATEGORY)
@@ -343,12 +461,13 @@ string MermaidGraphIO::writeInterfaceConnection(
     const string& interfaceId,
     const string& interfaceInputName,
     const string& inputName,
-    const string& inputNodeName)
+    const string& interiorNodeId,
+    const string& interiorNodeLabel)
 {
     string result;
     result = GRAPH_INDENT + interfaceId + "([" + interfaceInputName + "])";
     result += " ==." + inputName;
-    result += "==> " + inputNodeName + "\n";
+    result += "==> " + interiorNodeId + "[" + interiorNodeLabel + "]" + "\n";
     result += GRAPH_INDENT + "style " + interfaceId + " fill:#0bb, color:#111\n";
 
     return result;
