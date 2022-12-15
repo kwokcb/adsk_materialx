@@ -3,16 +3,16 @@
 // All rights reserved.  See LICENSE.txt for license.
 //
 
-#include <MaterialXFormat/Filter.h>
+#include <MaterialXFormat/GraphIO.h>
 
 MATERIALX_NAMESPACE_BEGIN
 
-const GraphElementPtr MermaidFilter::read(const string&)
+const GraphElementPtr MermaidGraphIO::read(const string&)
 {
     return nullptr;
 }
 
-string MermaidFilter::addNodeToSubgraph(std::unordered_map<string, StringSet>& subGraphs, const ElementPtr node, const string& label) const
+string MermaidGraphIO::addNodeToSubgraph(std::unordered_map<string, StringSet>& subGraphs, const ElementPtr node, const string& label) const
 {   
     if (!node)
     {
@@ -47,7 +47,7 @@ string MermaidFilter::addNodeToSubgraph(std::unordered_map<string, StringSet>& s
     return subgraphNodeName;
 }
 
-string MermaidFilter::write(GraphElementPtr graph, const std::vector<OutputPtr> roots, bool writeCategoryNames)
+string MermaidGraphIO::write(GraphElementPtr graph, const std::vector<OutputPtr> roots, bool writeCategoryNames)
 {
     string currentGraphString;
 

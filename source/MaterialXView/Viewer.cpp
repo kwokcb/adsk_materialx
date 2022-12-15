@@ -22,7 +22,7 @@
 
 #include <MaterialXFormat/Environ.h>
 #include <MaterialXFormat/Util.h>
-#include <MaterialXFormat/Filter.h>
+#include <MaterialXFormat/GraphIO.h>
 
 #include <nanogui/icons.h>
 #include <nanogui/messagedialog.h>
@@ -1609,13 +1609,13 @@ void Viewer::saveDiagrams()
 
             if (writeMermaid)
             {
-                mx::MermaidFilter mermaidFilter;
-                std::string mmString = mermaidFilter.write(graphNode, outputs);
+                mx::MermaidGraphIO mermaidIO;
+                std::string mmString = mermaidIO.write(graphNode, outputs);
                 std::string mmFilename = baseFilename.asString() + "_" + mx::createValidName(elem->getNamePath()) + ".md";
                 writeTextFile(mmString, mmFilename);
 
-                mx::MermaidFilter mermaidFilter2;
-                mmString = mermaidFilter2.write(graphNode, outputs, false);
+                mx::MermaidGraphIO mermaidIO2;
+                mmString = mermaidIO2.write(graphNode, outputs, false);
                 mmFilename = baseFilename.asString() + "_" + mx::createValidName(elem->getNamePath()) + "_names.md";
                 writeTextFile(mmString, mmFilename);
 

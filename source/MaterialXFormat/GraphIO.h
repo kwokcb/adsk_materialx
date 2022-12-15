@@ -3,11 +3,11 @@
 // All rights reserved.  See LICENSE.txt for license.
 //
 
-#ifndef MATERIALX_FILTER_H
-#define MATERIALX_FILTER_H
+#ifndef MATERIALX_GRAPHIO_H
+#define MATERIALX_GRAPHIO_H
 
 /// @file
-/// Support for the MaterialX file format filters
+/// Support for the MaterialX GraphElement interchange classes
 
 #include <MaterialXCore/Library.h>
 
@@ -18,66 +18,85 @@
 
 MATERIALX_NAMESPACE_BEGIN
 
-/// @class Filter
+/// @class GraphIO
 /// <summary>
-///     Interface defining classes which can either read or write a given non-MaterialX format
+///     Interface defining classes which can either read or write a given non-MaterialX GraphElement
 ///     to or from MaterialX respectively.
-/// 
+///
 ///     The class indicates which formats are supported and may either support reading / writing or
 ///     both.
-/// 
+///
 ///     The formatted input is assumed to be readable from and / or writeable to a string buffer
 /// </summary>
-class MX_FORMAT_API Filter
+class MX_FORMAT_API GraphIO
 {
   public:
-    Filter() {};
-    virtual ~Filter() {};
+    GraphIO(){};
+    virtual ~GraphIO(){};
 
-    /// Returns list of formats that the filter can read and convert to MaterialX
+    /// Returns list of formats that the GraphIO can read and convert to MaterialX
     /// @return List of supported formats</returns>
     const StringSet& readFormats() const
     {
         return _readFormats;
     }
 
-    /// Returns a list of formats that the filter can convert from MaterialX to a given format
+    /// Returns a list of formats that the GraphIO can convert from MaterialX to a given format
     const StringSet& writeFormats() const
     {
         return _writeFormats;
     }
-    
+
     /// Parse the input buffer and return a GraphElement
     /// Derived classes must implement this method
     /// @param inputBuffer Buffer to read from
     /// @return GraphElement result from converting the input
     virtual const GraphElementPtr read(const string& inputBuffer) = 0;
 
-    /// Traverse a graph and return a string 
+    /// Traverse a graph and return a string
     /// Derived classes must implement this method
-    /// @param graph GraphElement to write 
-    /// @param roots Optional list of roots to filter what upstream elements to consider>
+    /// @param graph GraphElement to write
+    /// @param roots Optional list of roots to GraphIO what upstream elements to consider>
     /// @param writeCategoryNames Use names of categories versus instance names for nodes. Default is true.
     /// @returns Buffer result
-    virtual string write(GraphElementPtr graph, const std::vector<OutputPtr> roots, bool writeCategoryNames=true) = 0;
+    virtual string write(GraphElementPtr graph, const std::vector<OutputPtr> roots, bool writeCategoryNames = true) = 0;
 
   protected:
-   StringSet _readFormats;
-   StringSet _writeFormats;
+    StringSet _readFormats;
+    StringSet _writeFormats;
 };
 
-class MX_FORMAT_API MermaidFilter : public Filter
+class MX_FORMAT_API DotGraphIO : public GraphIO
 {
   public:
-    MermaidFilter()
+    DotGraphIO()
+    {
+        _writeFormats.insert("dot");
+    }
+    virtual ~DotGraphIO() = default;
+
+    const GraphElementPtr read(const string& inputBuffer) override 
+    {
+      return nullptr;
+    }
+    string write(GraphElementPtr graph, const std::vector<OutputPtr> roots, bool writeCategoryNames = true) override
+    {
+      return EMPTY_STRING;
+    }
+};
+
+class MX_FORMAT_API MermaidGraphIO : public GraphIO
+{
+  public:
+    MermaidGraphIO()
     {
         _writeFormats.insert("md");
         _writeFormats.insert("mmd");
     }
-    virtual ~MermaidFilter() = default;
+    virtual ~MermaidGraphIO() = default;
 
     const GraphElementPtr read(const string& inputBuffer) override;
-    string write(GraphElementPtr graph, const std::vector<OutputPtr> roots, bool writeCategoryNames=true) override;
+    string write(GraphElementPtr graph, const std::vector<OutputPtr> roots, bool writeCategoryNames = true) override;
 
   protected:
     /// Add a Element label to a subgraph list. Given a node and label, the label will to bused to add an identifier to the subgraph list.
@@ -88,7 +107,6 @@ class MX_FORMAT_API MermaidFilter : public Filter
     /// </summary>
     string addNodeToSubgraph(std::unordered_map<string, StringSet>& subGraphs, const ElementPtr node, const string& label) const;
 };
-
 
 MATERIALX_NAMESPACE_END
 
