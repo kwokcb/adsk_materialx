@@ -101,7 +101,7 @@ class MX_FORMAT_API GraphIO
     /// </summary>
     string addNodeToSubgraph(std::unordered_map<string, StringSet>& subGraphs, const ElementPtr node, const string& label) const;
 
-    virtual string writeGraph(GraphElementPtr graph, const std::vector<OutputPtr> roots, bool writeCategoryNames = true);
+    virtual string writeGraph(GraphElementPtr graph, const std::vector<OutputPtr> roots, bool writeCategoryNames);
       
     /// Write root node 
     /// @param 
@@ -191,7 +191,7 @@ public:
 
     static DotGraphIOPtr create();
 
-    string write(GraphElementPtr graph, const std::vector<OutputPtr> roots, bool writeCategoryNames = true) override;
+    string write(GraphElementPtr graph, const std::vector<OutputPtr> roots, bool writeCategoryNames) override;
 
   protected:
     string writeRootNode(const NodeIO& root) override;
@@ -225,7 +225,7 @@ class MX_FORMAT_API MermaidGraphIO : public GraphIO
     /// Creator
     static MermaidGraphIOPtr create();
 
-    string write(GraphElementPtr graph, const std::vector<OutputPtr> roots, bool writeCategoryNames = true) override;
+    string write(GraphElementPtr graph, const std::vector<OutputPtr> roots, bool writeCategoryNames) override;
 
   protected:
     string writeRootNode(const NodeIO& root) override;
