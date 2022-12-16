@@ -1612,13 +1612,10 @@ void Viewer::saveDiagrams()
 
             if (writeMermaid)
             {
-                //mx::MermaidGraphIO mermaidIO;
-                //std::string mmString = mermaidIO.write(graphNode, outputs);
                 std::string mmString = _graphIORegistry->write("md", graphNode, outputs, true);
                 std::string mmFilename = baseFilename.asString() + "_" + mx::createValidName(elem->getNamePath()) + ".md";
                 writeTextFile(mmString, mmFilename);
 
-                //mx::MermaidGraphIO mermaidIO2;
                 mmString = _graphIORegistry->write("md", graphNode, outputs, false);
                 mmFilename = baseFilename.asString() + "_" + mx::createValidName(elem->getNamePath()) + "_names.md";
                 writeTextFile(mmString, mmFilename);
