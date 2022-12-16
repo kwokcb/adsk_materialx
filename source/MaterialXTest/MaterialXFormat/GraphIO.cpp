@@ -72,7 +72,7 @@ TEST_CASE("GraphIO: Generate Functional Graphs", "[graphio]")
             std::vector<mx::OutputPtr> roots;
             bool writeCategories = true;
 
-            for (const std::string extension : extensions)
+            for (const std::string& extension : extensions)
             {
                 std::string graphString = graphIORegistry->write(extension, nodegraph, roots, writeCategories);
                 if (!graphString.empty())
