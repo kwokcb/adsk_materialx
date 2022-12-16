@@ -165,7 +165,8 @@ string GraphIO::writeGraph(GraphElementPtr graph, const std::vector<OutputPtr> r
                                 upstreamGraph = upstreamNode->getParent()->asA<NodeGraph>();
                             }
                             const InputPtr interfaceInput = upstreamGraph ? upstreamGraph->getInput(interfaceName) : nullptr;
-                            if (interfaceInput && !interfaceInput->getConnectedNode())
+                            if (!interfaceInput || // Will occur with functional graphs
+                                (interfaceInput && !interfaceInput->getConnectedNode()))
                             {
                                 string graphInterfaceName = addNodeToSubgraph(subGraphs, upstreamNode, input->getInterfaceName());                        
 

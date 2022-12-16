@@ -48,6 +48,8 @@ TEST_CASE("GraphIO: Generate Functional Graphs", "[graphio]")
     graphIORegistry->addGraphIO(mx::MermaidGraphIO::create());
     graphIORegistry->addGraphIO(mx::DotGraphIO::create());
 
+    mx::StringVec extensions = { "md", "dot" };
+
     for (const mx::NodeDefPtr& nodedef : stdlib->getNodeDefs())
     {
         std::string nodeName = nodedef->getName();
@@ -65,38 +67,42 @@ TEST_CASE("GraphIO: Generate Functional Graphs", "[graphio]")
             continue;
         }
 
-        const std::string filename = nodeName + ".md";
         try
         {
             std::vector<mx::OutputPtr> roots;
-            std::string graphString = graphIORegistry->write("md", nodegraph, roots, false);
+            bool writeCategories = true;
 
-            if (!graphString.empty())
+            for (const std::string extension : extensions)
             {
-                logFile << "Wrote graph for node '" << nodeName << "'" << std::endl;
-
-                mx::FilePath libPath = outputPath;
-                for (const std::string& libraryName : libraryNames)
+                std::string graphString = graphIORegistry->write(extension, nodegraph, roots, writeCategories);
+                if (!graphString.empty())
                 {
-                    const std::string uri = nodegraph->getSourceUri();
-                    if (std::string::npos != uri.find(libraryName))
-                    {
-                        libPath = outputPath / libraryName;
-                        break;
-                    }
-                }
+                    logFile << "Wrote graph for node '" << nodeName << "'" << std::endl;
 
-                const std::string filepath = (libPath / filename).asString();
-                std::ofstream file;
-                file.open(filepath);
-                REQUIRE(file.is_open());
-                file << graphString;
-                file.close();
-            }
-            else
-            {
-                logFile << "Failed to write graph for node '" << nodeName << "'" << std::endl;
-                failedGeneration = true;
+                    mx::FilePath libPath = outputPath;
+                    for (const std::string& libraryName : libraryNames)
+                    {
+                        const std::string uri = nodegraph->getSourceUri();
+                        if (std::string::npos != uri.find(libraryName))
+                        {
+                            libPath = outputPath / libraryName;
+                            break;
+                        }
+                    }
+
+                    const std::string filename = nodeName + "." + extension;
+                    const std::string filepath = (libPath / filename).asString();
+                    std::ofstream file;
+                    file.open(filepath);
+                    REQUIRE(file.is_open());
+                    file << graphString;
+                    file.close();
+                }
+                else
+                {
+                    logFile << "Failed to write graph for node '" << nodeName << "'" << std::endl;
+                    failedGeneration = true;
+                }
             }
         }
         catch (mx::Exception& e)
