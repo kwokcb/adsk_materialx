@@ -105,12 +105,12 @@ string GraphIO::writeGraph(GraphElementPtr graph, const std::vector<OutputPtr> r
                 // - Output upstream node + label (id or category)
                 string upstreamId = addNodeToSubgraph(subGraphs, upstreamElem, upstreamElem->getName());
                 NodeIO nodeIO;                
-                NodePtr node = upstreamElem->asA<Node>();
+                NodePtr upstreamNode = upstreamElem->asA<Node>();
                 if (node)
                 {
-                    NodeDefPtr nodeDef = node->getNodeDef();
+                    NodeDefPtr upstreamNodeDef = upstreamNode->getNodeDef();
                     
-                    nodeIO.group = nodeDef ? nodeDef->getNodeGroup() : EMPTY_STRING;
+                    nodeIO.group = upstreamNodeDef ? upstreamNodeDef->getNodeGroup() : EMPTY_STRING;
                 }
                 nodeIO.identifier = upstreamId;
                 nodeIO.uilabel = writeCategoryNames ? upstreamElem->getCategory() : upstreamId;
@@ -148,7 +148,6 @@ string GraphIO::writeGraph(GraphElementPtr graph, const std::vector<OutputPtr> r
                 nodeIO.uishape = NodeIO::Box;
                 currentGraphString += writeDownstreamNode(nodeIO, inputLabel);
 
-                NodePtr upstreamNode = upstreamElem->asA<Node>();
                 const string upstreamNodeName = upstreamNode ? upstreamNode->getName() : EMPTY_STRING;
                 if (upstreamNode && !processedInterfaces.count(upstreamNodeName))
                 {

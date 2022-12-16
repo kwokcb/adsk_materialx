@@ -152,11 +152,11 @@ class MX_FORMAT_API GraphIO
     /// @param node Node information to write
     /// @param inputLabel input on node
     /// @return Written string result
-    virtual string writeDownstreamNode(const NodeIO& node,
-        const string& /*inputLabel*/)
+    virtual string writeDownstreamNode(const NodeIO& /*node*/,
+                                       const string& /*inputLabel*/)
     {
         return EMPTY_STRING;
-    };
+    }
 
     /// Write sub-graph groupings. For now the only subgraphs supported
     /// are NodeGraphs
@@ -172,7 +172,7 @@ class MX_FORMAT_API GraphIO
     /// @param orientation Orientation of the graph
     /// @return Written string result
     virtual string writeGraphString(const string& /*graphString*/,
-        const string& /*orientation*/)
+                                    const string& /*orientation*/)
     {
         return EMPTY_STRING;
     }
@@ -197,9 +197,9 @@ public:
     string writeRootNode(const NodeIO& root) override;
     string writeUpstreamNode(const NodeIO& node) override;
     string writeConnection(
-      const string& /*upstreamPortLabel*/,
-        const string& /*upstreamPort*/, 
-        const string& /*connectingElementString*/) override;
+      const string& upstreamPortLabel,
+        const string& upstreamPort, 
+        const string& inputName) override;
     string writeInterfaceConnection(
         const string& interfaceId,
         const string& interfaceInputName,
