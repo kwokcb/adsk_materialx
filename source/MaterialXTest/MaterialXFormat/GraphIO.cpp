@@ -35,7 +35,6 @@ TEST_CASE("GraphIO: Generate Functional Graphs", "[graphio]")
         mx::FilePath libPath = outputPath / libraryName;
         libPath.createDirectory();
     }
-    //outputPath.getParentPath().createDirectory();
 
     // Create log file.
     const mx::FilePath logPath("graphio_test.txt");

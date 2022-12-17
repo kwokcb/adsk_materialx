@@ -227,6 +227,9 @@ class MX_FORMAT_API GraphIO
 
     /// Storage for formats supported
     StringSet _formats;
+
+    /// Map containing restricted keywords and their replacement for identifiers
+    StringMap _restrictedMap;
 };
 
 class MX_FORMAT_API DotGraphIO : public GraphIO
@@ -270,6 +273,9 @@ class MX_FORMAT_API MermaidGraphIO : public GraphIO
         // Markdown and Markdown diagrams
         _formats.insert("md");
         _formats.insert("mmd");
+
+        // Add restricted keywords
+        _restrictedMap["default"] = "dfault";
     }
     virtual ~MermaidGraphIO() = default;
 

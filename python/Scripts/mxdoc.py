@@ -152,16 +152,26 @@ def printNodeDefs(doc, opts):
                 print('* *Version*: %s. Is default: %s' % (nd.getVersionString(), nd.getDefaultVersion()))
             if len(nd.getInheritString()) > 0:
                 print('- *Inherits From*: %s' % nd.getInheritString())
-            print('* *Doc*: %s\n' % nd.getAttribute('doc'))
+            docstring = nd.getAttribute('doc')
+            if not docstring:
+                docstring = "UNDOCUMENTED"
+            print('* *Doc*: %s' % docstring)
             if opts.nodegraph:
-                ng = nd.getImplementation()
                 mdoutput = ''
-                if ng:
+                ng = nd.getImplementation()
+                if ng and ng.isA(mx.NodeGraph):
                     outputList = ng.getOutputs()
                     mdoutput = graphio.write('md', ng, outputList, True)
-                if mdoutput:
-                    print('- *Nodegraph*: %s\n' % ng.getName())
-                    print(mdoutput)
+                    print('* *Nodegraph*: %s' % ng.getName())
+                    if mdoutput:
+                        print('\n')
+                        print(mdoutput)
+                    else:
+                        print('None')
+                else:
+                    print('* *Implementation*: Non-graph')
+            
+            print(' \n')
             print('| ' + ' | '.join(HEADERS) + ' |')
             print('|' + ' ---- |' * len(HEADERS) + '')
             inputList = nd.getActiveInputs() if opts.showInherited  else nd.getInputs()

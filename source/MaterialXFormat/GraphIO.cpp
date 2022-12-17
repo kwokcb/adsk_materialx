@@ -23,6 +23,10 @@ string GraphIO::addNodeToSubgraph(std::unordered_map<string, StringSet>& subGrap
     }
 
     string subgraphNodeName = label;
+    if (!_restrictedMap.empty())
+    {
+        subgraphNodeName = replaceSubstrings(subgraphNodeName, _restrictedMap);
+    }
     const ElementPtr subgraph = node->getParent();
     if (!subgraph)
     {
