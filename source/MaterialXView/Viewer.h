@@ -425,7 +425,14 @@ class Viewer : public ng::Screen
     unsigned int _bakeHeight;
     mx::FilePath _bakeFilename;
 
-    // GraphElement IO
+    // Diagram export
+    enum class DiagramFormat
+    {
+        MERMAID_FORMAT = 0,
+        DOT_FORMAT
+    };
+    DiagramFormat _diagramFormat;
+    bool _diagramWriteCategoryNames;
     mx::GraphIORegistryPtr _graphIORegistry;
 };
 

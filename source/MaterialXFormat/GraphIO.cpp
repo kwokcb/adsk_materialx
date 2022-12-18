@@ -125,21 +125,25 @@ string GraphIO::writeGraph(GraphElementPtr graph, const std::vector<OutputPtr> r
                 // Add connecting edges
                 //
                 string outputPort;
-                string inputLabel;
                 string outputLabel;
+                string inputName;
+                string channelName;
                 if (connectingElem)
                 {
-                    inputLabel = "." + connectingElem->getName();
+                    inputName = connectingElem->getName();
+                    // Check for channel
+                    channelName = connectingElem->getAttribute(PortElement::CHANNELS_ATTRIBUTE);
+
                     // Check for an explicit output name
                     outputLabel = connectingElem->getAttribute(PortElement::OUTPUT_ATTRIBUTE);
                     if (!outputLabel.empty())
                     {
                         // Add the output to parent subgraph if any
                         // Upstream to Output connection
-                        outputPort = addNodeToSubgraph(subGraphs, upstreamElem, outputLabel);                        
+                        outputPort = addNodeToSubgraph(subGraphs, upstreamElem, upstreamId + outputLabel);                        
                     }
                 }
-                currentGraphString += writeConnection(outputPort, outputLabel, inputLabel);
+                currentGraphString += writeConnection(outputPort, outputLabel, inputName, channelName);
 
                 // Add downstream
                 string downstreamCategory = downstreamElem->getCategory();
@@ -150,7 +154,7 @@ string GraphIO::writeGraph(GraphElementPtr graph, const std::vector<OutputPtr> r
                 nodeIO.uilabel = writeCategoryNames ? downstreamCategory : downstreamName;
                 nodeIO.category = downstreamCategory;
                 nodeIO.uishape = NodeIO::Box;
-                currentGraphString += writeDownstreamNode(nodeIO, inputLabel);
+                currentGraphString += writeDownstreamNode(nodeIO, inputName);
 
                 const string upstreamNodeName = upstreamNode ? upstreamNode->getName() : EMPTY_STRING;
                 if (upstreamNode && !processedInterfaces.count(upstreamNodeName))
@@ -179,7 +183,7 @@ string GraphIO::writeGraph(GraphElementPtr graph, const std::vector<OutputPtr> r
                                 const string interiorNodeLabel = writeCategoryNames ? interiorNodeCategory : interiorNodeId;
 
                                 const string interfaceInputName = input->getInterfaceName();
-                                const string inputName = input->getName();
+                                const string internorInputName = input->getName();
 
                                 nodeIO.identifier = interiorNodeId;
                                 nodeIO.uilabel = interiorNodeLabel;
@@ -187,7 +191,7 @@ string GraphIO::writeGraph(GraphElementPtr graph, const std::vector<OutputPtr> r
                                 nodeIO.uishape = NodeIO::RoundedBox;
                                 currentGraphString += 
                                     writeInterfaceConnection(graphInterfaceName, interfaceInputName,
-                                                             inputName, nodeIO);
+                                                             internorInputName, nodeIO);
                             }
                         }
                     }
@@ -247,19 +251,27 @@ string DotGraphIO::writeUpstreamNode(
     return result;
 }
 
-string DotGraphIO::writeConnection(
-    const string& outputName,
-    const string& outputLabel,
-    const string& inputLabel)
+string DotGraphIO::writeConnection(const string& outputName,
+                                   const string& outputLabel,
+                                   const string& inputName,
+                                   const string& channelName)
 {
     string dot;
 
     dot += " -> ";
-    if (!inputLabel.empty())
+    if (!inputName.empty())
     {
         if (!outputLabel.empty() && !outputName.empty())
         {
             dot += outputName + ";\n";
+            if (channelName.empty())
+            {
+                dot += GRAPH_INDENT + outputName + " [label= \"" + outputLabel + "." + channelName + "\"];\n";
+            }
+            else
+            {
+                dot += GRAPH_INDENT + outputName + " [label= \"" + outputLabel + "\"];\n";
+            }
             dot += GRAPH_INDENT + outputName + " [label= \"" + outputLabel + "\"];\n";
             dot += GRAPH_INDENT + outputName + " [shape = ellipse];\n";
             dot += GRAPH_INDENT + outputName + " -> ";
@@ -363,21 +375,32 @@ string MermaidGraphIO::writeUpstreamNode(const NodeIO& node)
 }
 
 string MermaidGraphIO::writeConnection(const string& outputName,
-    const string& outputLabel, const string& inputLabel)
+                                       const string& outputLabel, 
+                                       const string& inputName, 
+                                       const string& channelName)
 {
     string result;
 
-    if (!inputLabel.empty())
+    if (!inputName.empty())
     {
+        string fullLabel;
+        if (!channelName.empty())
+        {
+            fullLabel = GRAPH_QUOTE + "." + channelName + " -> ." + inputName + GRAPH_QUOTE;
+        }
+        else
+        {
+            fullLabel = GRAPH_QUOTE + "." + inputName + GRAPH_QUOTE;
+        }
         if (!outputLabel.empty() && !outputName.empty())
         {
             result = " --> " + outputName + "([" + outputLabel + "])\n";
             result += GRAPH_INDENT + "style " + outputName + " fill:#1b1, color:#111\n";
-            result += GRAPH_INDENT + outputName + " --" + inputLabel + "--> ";
+            result += GRAPH_INDENT + outputName + " --" + fullLabel + "--> ";
         }
         else
         {
-            result = " --" + inputLabel + "--> ";
+            result = " --" + fullLabel + "--> ";
         }
     }
     else

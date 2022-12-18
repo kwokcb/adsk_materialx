@@ -140,18 +140,23 @@ class MX_FORMAT_API GraphIO
     /// Write the connection from an upstream node to a
     /// downstream node. Include upstream portand downstream
     /// input if specified.
-    /// @param upstreamPortLabel ui label for output on upstream node
-    /// @param upstreamPort name of output on upstream node
-    /// @param inputName name of input on downstream node
+    /// @param outputName Name of the upstream output
+    /// @param outputLabel ui labelfor the upstream output
+    /// @param inputName name of input on downstream node 
+    /// @param channelName name of channel on downstream input. 
+    /// This would be the equivalent of having an `extract` node between upstream output and downstream input.
+    /// May be empty.
     /// @return Written string result
     virtual string writeConnection(
-        const string& upstreamPortLabel,
-        const string& upstreamPort, 
-        const string& inputName) 
+        const string& outputName,
+        const string& outputLabel, 
+        const string& inputName,
+        const string& channelName) 
     {
-        (void)(upstreamPortLabel);
-        (void)(upstreamPort);
+        (void)(outputName);
+        (void)(outputLabel);
         (void)(inputName);
+        (void)(channelName);
         return EMPTY_STRING;
     }
 
@@ -250,9 +255,10 @@ public:
     string writeRootNode(const NodeIO& root) override;
     string writeUpstreamNode(const NodeIO& node) override;
     string writeConnection(
-      const string& upstreamPortLabel,
-        const string& upstreamPort, 
-        const string& inputName) override;
+        const string& outputName,
+        const string& outputLabel,
+        const string& inputName,
+        const string& channelName) override;
     string writeInterfaceConnection(
         const string& interfaceId,
         const string& interfaceInputName,
@@ -288,9 +294,10 @@ class MX_FORMAT_API MermaidGraphIO : public GraphIO
     string writeRootNode(const NodeIO& root) override;
     string writeUpstreamNode(const NodeIO& node) override;
     string writeConnection(
-      const string& /*upstreamPortLabel*/,
-        const string& /*upstreamPort*/, 
-        const string& /*connectingElementString*/) override;
+        const string& outputName,
+        const string& outputLabel,
+        const string& inputName,
+        const string& channelName) override;
     string writeInterfaceConnection(
         const string& interfaceId,
         const string& interfaceInputName,
