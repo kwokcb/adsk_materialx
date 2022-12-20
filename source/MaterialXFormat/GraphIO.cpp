@@ -475,14 +475,14 @@ string MermaidGraphIO::writeSubgraphs(std::unordered_map<string, StringSet> subG
 
 string MermaidGraphIO::writeGraphString(const string& graphString)
 {
-    std::unordered_map<GraphIOWriteOptions::Orientation, string> orientations;
-    orientations[GraphIOWriteOptions::Orientation::TOP_DOWN] = "TD";
-    orientations[GraphIOWriteOptions::Orientation::BOTTOM_UP] = "BT";
-    orientations[GraphIOWriteOptions::Orientation::LEFT_RIGHT] = "LR";
-    orientations[GraphIOWriteOptions::Orientation::RIGHT_LEFT] = "RL";
+    std::unordered_map<int, string> orientations;
+    orientations[(int)GraphIOWriteOptions::Orientation::TOP_DOWN] = "TD";
+    orientations[(int)GraphIOWriteOptions::Orientation::BOTTOM_UP] = "BT";
+    orientations[(int)GraphIOWriteOptions::Orientation::LEFT_RIGHT] = "LR";
+    orientations[(int)GraphIOWriteOptions::Orientation::RIGHT_LEFT] = "RL";
 
 
-    string result = "graph " + orientations[_writeOptions.getOrientation()] + "; \n";
+    string result = "graph " + orientations[(int)_writeOptions.getOrientation()] + "; \n";
     result += graphString;
     return result;
 }
