@@ -54,7 +54,7 @@ string GraphIO::addNodeToSubgraph(std::unordered_map<string, StringSet>& subGrap
     return subgraphNodeName;
 }
 
-string GraphIO::writeGraph(GraphElementPtr graph, const std::vector<OutputPtr> roots, bool writeCategoryNames)
+string GraphIO::writeGraph(GraphElementPtr graph, const std::vector<OutputPtr> roots)
 {
     string currentGraphString;
 
@@ -76,6 +76,7 @@ string GraphIO::writeGraph(GraphElementPtr graph, const std::vector<OutputPtr> r
         outputs = graph->getOutputs();
     }
 
+    bool writeCategoryNames = _writeOptions.getWriteCategories();
     for (OutputPtr output : outputs)
     {
         ElementPtr root;
@@ -119,7 +120,7 @@ string GraphIO::writeGraph(GraphElementPtr graph, const std::vector<OutputPtr> r
                 nodeIO.identifier = upstreamId;
                 nodeIO.uilabel = writeCategoryNames ? upstreamElem->getCategory() : upstreamId;
                 nodeIO.category = upstreamElem->getCategory();
-                nodeIO.uishape = NodeIO::Box;
+                nodeIO.uishape = NodeIO::BOX;
                 currentGraphString += writeUpstreamNode(nodeIO);
 
                 // Add connecting edges
@@ -153,7 +154,7 @@ string GraphIO::writeGraph(GraphElementPtr graph, const std::vector<OutputPtr> r
                 nodeIO.identifier = downstreamId;
                 nodeIO.uilabel = writeCategoryNames ? downstreamCategory : downstreamName;
                 nodeIO.category = downstreamCategory;
-                nodeIO.uishape = NodeIO::Box;
+                nodeIO.uishape = NodeIO::BOX;
                 currentGraphString += writeDownstreamNode(nodeIO, inputName);
 
                 const string upstreamNodeName = upstreamNode ? upstreamNode->getName() : EMPTY_STRING;
@@ -186,9 +187,9 @@ string GraphIO::writeGraph(GraphElementPtr graph, const std::vector<OutputPtr> r
                                 const string internorInputName = input->getName();
 
                                 nodeIO.identifier = interiorNodeId;
-                                nodeIO.uilabel = interiorNodeLabel;
+                                nodeIO.uilabel = writeCategoryNames ? interiorNodeCategory : interiorNodeLabel;
                                 nodeIO.category = interiorNodeCategory;
-                                nodeIO.uishape = NodeIO::RoundedBox;
+                                nodeIO.uishape = NodeIO::ROUNDEDBOX;
                                 currentGraphString += 
                                     writeInterfaceConnection(graphInterfaceName, interfaceInputName,
                                                              internorInputName, nodeIO);
@@ -207,19 +208,21 @@ string GraphIO::writeGraph(GraphElementPtr graph, const std::vector<OutputPtr> r
             nodeIO.identifier = createValidName(root->getNamePath());
             nodeIO.category = root->getCategory();
             nodeIO.uilabel = writeCategoryNames ? nodeIO.category : nodeIO.identifier;
-            nodeIO.uishape = NodeIO::Box;
+            nodeIO.uishape = NodeIO::BOX;
             currentGraphString += writeRootNode(nodeIO);
         }
     }
 
-    // Add output for nodes in subgraphs.
-    // Needs to be done before the graph for dot outout.
-    string subGraphString = writeSubgraphs(subGraphs);
-    currentGraphString = subGraphString + currentGraphString;
+    // Add output for nodes in subgraphs if option set
+    // Needs to be done before the graph for GraphViz output.
+    if (_writeOptions.getWriteSubgraphs())
+    {
+        string subGraphString = writeSubgraphs(subGraphs);
+        currentGraphString = subGraphString + currentGraphString;
+    }
 
     // Output entire graph
-    const string orientation = "TD";
-    string outputString = writeGraphString(currentGraphString, orientation);
+    string outputString = writeGraphString(currentGraphString);
 
     return outputString;
 }
@@ -314,7 +317,11 @@ string DotGraphIO::writeDownstreamNode(const NodeIO& node, const string& inputLa
 
 string DotGraphIO::writeSubgraphs(std::unordered_map<string, StringSet> subGraphs)
 {
-    string result;
+    string result = EMPTY_STRING;
+    if (!_writeOptions.getWriteSubgraphs())
+    {
+        return result;
+    }
 
     unsigned int clusterNumber = 1;
     const string CLUSTER_STRING = "cluster_";
@@ -339,7 +346,7 @@ string DotGraphIO::writeSubgraphs(std::unordered_map<string, StringSet> subGraph
     return result;
 }
 
-string DotGraphIO::writeGraphString(const string& graphString, const string& /*orientation*/)
+string DotGraphIO::writeGraphString(const string& graphString)
 {
     string dot = "digraph {\n";
     dot += graphString;
@@ -348,9 +355,9 @@ string DotGraphIO::writeGraphString(const string& graphString, const string& /*o
     return dot;
 }
 
-string DotGraphIO::write(GraphElementPtr graph, const std::vector<OutputPtr> roots, bool writeCategoryNames)
+string DotGraphIO::write(GraphElementPtr graph, const std::vector<OutputPtr> roots)
 {
-    return writeGraph(graph, roots, writeCategoryNames);
+    return writeGraph(graph, roots);
 }
 
 // Mermaid graph methods
@@ -448,7 +455,12 @@ string MermaidGraphIO::writeRootNode(const NodeIO& root)
 
 string MermaidGraphIO::writeSubgraphs(std::unordered_map<string, StringSet> subGraphs)
 {
-    string result;
+    string result = EMPTY_STRING;
+    if (!_writeOptions.getWriteSubgraphs())
+    {
+        return result;
+    }
+
     for (auto subGraph : subGraphs)
     {
         result += "  subgraph " + subGraph.first + "\n";
@@ -461,19 +473,23 @@ string MermaidGraphIO::writeSubgraphs(std::unordered_map<string, StringSet> subG
     return result;
 }
 
-string MermaidGraphIO::writeGraphString(const string& graphString, const string& orientation)
+string MermaidGraphIO::writeGraphString(const string& graphString)
 {
-    string result = "```mermaid\n";
-    result += "graph " + orientation + "; \n";
-    result += graphString;
-    result += "```\n";
+    std::unordered_map<GraphIOWriteOptions::Orientation, string> orientations;
+    orientations[GraphIOWriteOptions::Orientation::TOP_DOWN] = "TD";
+    orientations[GraphIOWriteOptions::Orientation::BOTTOM_UP] = "BT";
+    orientations[GraphIOWriteOptions::Orientation::LEFT_RIGHT] = "LR";
+    orientations[GraphIOWriteOptions::Orientation::RIGHT_LEFT] = "RL";
 
+
+    string result = "graph " + orientations[_writeOptions.getOrientation()] + "; \n";
+    result += graphString;
     return result;
 }
 
-string MermaidGraphIO::write(GraphElementPtr graph, const std::vector<OutputPtr> roots, bool writeCategoryNames)
+string MermaidGraphIO::write(GraphElementPtr graph, const std::vector<OutputPtr> roots)
 {
-    return writeGraph(graph, roots, writeCategoryNames);
+    return writeGraph(graph, roots);
 }
 
 GraphIORegistryPtr GraphIORegistry::create()
@@ -494,7 +510,7 @@ void GraphIORegistry::addGraphIO(GraphIOPtr graphIO)
 }
 
 string GraphIORegistry::write(const string& format, GraphElementPtr graph, const std::vector<OutputPtr> roots, 
-                bool writeCategoryNames)
+                               const GraphIOWriteOptions& options)
 
 {
     string result = EMPTY_STRING;
@@ -502,7 +518,8 @@ string GraphIORegistry::write(const string& format, GraphElementPtr graph, const
     {
         try
         {
-            result = graphIO->write(graph, roots, writeCategoryNames);
+            graphIO->setWriteOptions(options);
+            result = graphIO->write(graph, roots);
         }
         catch (std::exception& e)
         {

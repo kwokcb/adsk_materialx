@@ -69,38 +69,55 @@ TEST_CASE("GraphIO: Generate Functional Graphs", "[graphio]")
         try
         {
             std::vector<mx::OutputPtr> roots;
-            bool writeCategories = true;
+            std::vector<bool> writeCategoriesList = { true, false };
 
             for (const std::string& extension : extensions)
             {
-                std::string graphString = graphIORegistry->write(extension, nodegraph, roots, writeCategories);
-                if (!graphString.empty())
-                {
-                    logFile << "Wrote graph for node '" << nodeName << "'" << std::endl;
+                mx::GraphIOWriteOptions graphOptions;
+                graphOptions.setWriteSubgraphs(false);
 
-                    mx::FilePath libPath = outputPath;
-                    for (const std::string& libraryName : libraryNames)
+                for (auto writeCategories : writeCategoriesList)
+                {
+                    graphOptions.setWriteCategories(writeCategories);
+                    std::string graphString = graphIORegistry->write(extension, nodegraph, roots, graphOptions);
+                    if (!graphString.empty())
                     {
-                        const std::string uri = nodegraph->getSourceUri();
-                        if (std::string::npos != uri.find(libraryName))
-                        {
-                            libPath = outputPath / libraryName;
-                            break;
-                        }
-                    }
+                        logFile << "Wrote " + (!writeCategories ? " instanced " : mx::EMPTY_STRING) + "graph for node '" << nodeName << "'" << std::endl;
 
-                    const std::string filename = nodeName + "." + extension;
-                    const std::string filepath = (libPath / filename).asString();
-                    std::ofstream file;
-                    file.open(filepath);
-                    REQUIRE(file.is_open());
-                    file << graphString;
-                    file.close();
-                }
-                else
-                {
-                    logFile << "Failed to write graph for node '" << nodeName << "'" << std::endl;
-                    failedGeneration = true;
+                        mx::FilePath libPath = outputPath;
+                        for (const std::string& libraryName : libraryNames)
+                        {
+                            const std::string uri = nodegraph->getSourceUri();
+                            if (std::string::npos != uri.find(libraryName))
+                            {
+                                libPath = outputPath / libraryName;
+                                break;
+                            }
+                        }
+
+                        const std::string filename = nodeName + (!writeCategories ? "_instance" : mx::EMPTY_STRING) + "." + extension;
+                        const std::string filepath = (libPath / filename).asString();
+                        std::ofstream file;
+                        file.open(filepath);
+                        REQUIRE(file.is_open());
+                        if (extension == "md")
+                        {
+                            std::string result = "```mermaid\n";
+                            result += graphString;
+                            result += "```\n";
+                            file << result;
+                        }
+                        else
+                        {
+                            file << graphString;
+                        }
+                        file.close();
+                    }
+                    else
+                    {
+                        logFile << "Failed to write graph for node '" << nodeName << "'" << std::endl;
+                        failedGeneration = true;
+                    }
                 }
             }
         }

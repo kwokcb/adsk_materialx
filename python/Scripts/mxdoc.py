@@ -104,7 +104,25 @@ def printNodeDefs(doc, opts):
             if len(nd.getInheritString()) > 0:
                 print('<li> <em>Inherits From</em>: %s' % nd.getInheritString())
             print('<li> <em>Doc</em>: %s\n' % nd.getAttribute('doc'))
+            if opts.nodegraph:
+                mdoutput = ''
+                ng = nd.getImplementation()
+                if ng and ng.isA(mx.NodeGraph):
+                    outputList = ng.getOutputs()
+                    mdoutput = graphio.write('md', ng, outputList, True)
+                    print('<li> <em>Nodegraph</em>: %s' % ng.getName())
+                    if mdoutput:
+                        print('<pre><code class="language-mermaid"><div class="mermaid">')
+                        print(mdoutput)
+                        print('\n')
+                        print('</div></code></pre>\n')   
+                    else:
+                        print('None')
+                else:
+                    print('<li> <em>Implementation</em>: Non-graph')
+
             print('</ul>')
+            
             print('<table><tr>')
             for h in HEADERS:
                 print('<th>' + h + '</th>')
@@ -161,11 +179,17 @@ def printNodeDefs(doc, opts):
                 ng = nd.getImplementation()
                 if ng and ng.isA(mx.NodeGraph):
                     outputList = ng.getOutputs()
+                    # Don't want subgraph as the implemention is a subgraph
+                    graphOptions = mx.GraphIOWriteOptions()
+                    graphOptions.setWriteSubgraphs(False)
+                    graphio.setWriteOptions(graphOptions)
                     mdoutput = graphio.write('md', ng, outputList, True)
                     print('* *Nodegraph*: %s' % ng.getName())
                     if mdoutput:
                         print('\n')
+                        print('```mermaid')
                         print(mdoutput)
+                        print('```')
                     else:
                         print('None')
                 else:
@@ -224,6 +248,12 @@ def readDocuments(rootPath, doc):
 def printHeader(opts):
     if opts.documentType == "html":
         print('<html>')
+        # Add in mermaid support
+        if opts.nodegraph:
+            print('<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>')
+            print('<script>')
+            print('mermaid.initialize({ startOnLoad: true, theme: document.body.classList.contains("vscode-dark") || document.body.classList.contains("vscode-high-contrast") ? "dark" : "default" });')
+            print('</script>')        
         print('<head><style>')
         print('table, th, td {')
         print('   border-bottom: 1px solid; border-collapse: collapse; padding: 10px;')

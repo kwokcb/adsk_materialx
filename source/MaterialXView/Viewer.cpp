@@ -1642,9 +1642,15 @@ void Viewer::saveDiagrams()
                 formatString = "dot";
             }
             
-            outputString = _graphIORegistry->write(formatString, graphNode, outputs, _diagramWriteCategoryNames);
+            mx::GraphIOWriteOptions graphOptions;
+            graphOptions.setWriteCategories(_diagramWriteCategoryNames);
+            outputString = _graphIORegistry->write(formatString, graphNode, outputs, graphOptions);
             if (!outputString.empty())
             {
+                if (_diagramFormat == DiagramFormat::MERMAID_FORMAT)
+                {
+                    outputString = "```mermaid\n" + outputString + "\n```\n";
+                }
                 outputFilename = baseFilename.asString() + "_" + mx::createValidName(elem->getNamePath()) + "." + formatString;
                 writeTextFile(outputString, outputFilename);
                 new ng::MessageDialog(this, ng::MessageDialog::Type::Information, "Saved diagram file: ", outputFilename);

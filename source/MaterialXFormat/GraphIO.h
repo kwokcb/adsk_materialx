@@ -48,9 +48,9 @@ class MX_FORMAT_API NodeIO
     /// UI node shapes
     enum NodeShape
     {
-        Box = 0,        /// Box shape. Used for non interface nodes
-        RoundedBox = 1, /// Rounded box shape. Used to indicate interface input and output nodes
-        Diamond = 1,    /// Diamond shape. Used to indicate conditionals.
+        BOX = 0,        /// Box shape. Used for non interface nodes
+        ROUNDEDBOX = 1, /// Rounded box shape. Used to indicate interface input and output nodes
+        DIAMOND = 1,    /// Diamond shape. Used to indicate conditionals.
     };
 
     /// Uniique Node identifier. This identifier is unique per MaterialX Document.
@@ -66,7 +66,77 @@ class MX_FORMAT_API NodeIO
     string group;
 
     /// Node UI shape. Default is box.
-    NodeShape uishape = Box;
+    NodeShape uishape = BOX;
+};
+
+class MX_FORMAT_API GraphIOWriteOptions
+{
+  public:
+    GraphIOWriteOptions() {}
+    virtual ~GraphIOWriteOptions() {}
+
+    /// Option on whether to write node labels using the category of the node as the label as
+    /// opposed to the unique name of the Element. Default is to write category names.
+    void setWriteCategories(bool val)
+    {
+        _writeCategories = val;
+    }
+
+    /// Get whether to write categories for node labels
+    bool getWriteCategories() const
+    {
+        return _writeCategories;
+    }
+
+    /// Option on whether to write subgraph groupings or not. 
+    /// For a node definition, this can be turned off as definition graphs
+    /// are in general single nodegraphs. By default subgraphs are written.
+    void setWriteSubgraphs(bool val)
+    {
+        _writeSubgraphs = val;
+    }
+
+    /// Get whether option to write subgraphs is enabled
+    bool getWriteSubgraphs() const
+    {
+        return _writeSubgraphs;
+    }
+
+    /// Graph writing orientation hint. Some formats may or
+    /// may not support one or more of these options.
+    enum class Orientation
+    {
+        TOP_DOWN,
+        BOTTOM_UP,
+        LEFT_RIGHT,
+        RIGHT_LEFT
+    };
+
+    /// Hint on the orientation to write the graph.  
+    /// The default orientation is set to TOP_DOWN which means the root is
+    /// at the top and upstream downs are positioned downward from the root.
+    /// @param val Orientationn hint
+    void setOrientation(Orientation val)
+    {
+        _orientation = val;
+    }
+
+    /// Get whether option to write subgraphs is enabled.
+    /// @return Orientation hint
+    Orientation getOrientation() const
+    {
+        return _orientation;
+    }
+
+  protected:
+    /// Write category labels
+    bool _writeCategories = true;
+
+    /// Write subgraphs
+    bool _writeSubgraphs = true;
+
+    /// Orientation hint
+    Orientation _orientation = Orientation::TOP_DOWN;
 };
 
 /// @class GraphIO
@@ -96,13 +166,31 @@ class MX_FORMAT_API GraphIO
         return _formats;
     }
 
+    /// @name I/O methods
+
     /// Traverse a graph and return a string
     /// Derived classes must implement this method
     /// @param graph GraphElement to write
     /// @param roots Optional list of roots to GraphIO what upstream elements to consider>
     /// @param writeCategoryNames Use names of categories versus instance names for nodes. Default is true.
     /// @returns Buffer result
-    virtual string write(GraphElementPtr graph, const std::vector<OutputPtr> roots, bool writeCategoryNames = true) = 0;
+    virtual string write(GraphElementPtr graph, const std::vector<OutputPtr> roots) = 0;
+
+    /// @}
+    /// @name Options to set before writing
+    /// @{
+
+    /// Get options for writing
+    const GraphIOWriteOptions& getWriteOptions() const
+    {
+        return _writeOptions;
+    }
+
+    /// Set options for writing
+    void setWriteOptions(const GraphIOWriteOptions& options)
+    {
+        _writeOptions = options;
+    }
 
   protected:
     /// @name Graph Writing Utilties
@@ -114,9 +202,8 @@ class MX_FORMAT_API GraphIO
     /// 
     /// @param graph GraphElement to write
     /// @param roots Optional list of roots to GraphIO what upstream elements to consider>
-    /// @param writeCategoryNames Use names of categories versus instance names for nodes. Default is true.
     /// @returns Buffer result
-    virtual string writeGraph(GraphElementPtr graph, const std::vector<OutputPtr> roots, bool writeCategoryNames);
+    virtual string writeGraph(GraphElementPtr graph, const std::vector<OutputPtr> roots);
       
     /// Write root node only. Called when there are no downstream.
     /// connections.
@@ -203,13 +290,10 @@ class MX_FORMAT_API GraphIO
 
     /// Write GraphElement
     /// @param graphString Name to use for the graph 
-    /// @param orientation Orientation of the graph
     /// @return Written string result
-    virtual string writeGraphString(const string& graphString,
-                                    const string& orientation)
+    virtual string writeGraphString(const string& graphString)
     {
         (void)(graphString);
-        (void)(orientation);
         return EMPTY_STRING;
     }
 
@@ -235,6 +319,9 @@ class MX_FORMAT_API GraphIO
 
     /// Map containing restricted keywords and their replacement for identifiers
     StringMap _restrictedMap;
+
+    /// Write options
+    GraphIOWriteOptions _writeOptions;
 };
 
 class MX_FORMAT_API DotGraphIO : public GraphIO
@@ -249,7 +336,7 @@ public:
 
     static DotGraphIOPtr create();
 
-    string write(GraphElementPtr graph, const std::vector<OutputPtr> roots, bool writeCategoryNames) override;
+    string write(GraphElementPtr graph, const std::vector<OutputPtr> roots) override;
 
   protected:
     string writeRootNode(const NodeIO& root) override;
@@ -267,7 +354,7 @@ public:
     string writeDownstreamNode(const NodeIO& node, const string& inputName) override;
     string writeSubgraphs(
         std::unordered_map<string, StringSet> subGraphs) override;
-    string writeGraphString(const string& graphString, const string& orientation) override;
+    string writeGraphString(const string& graphString) override;
 };
     
 
@@ -288,7 +375,7 @@ class MX_FORMAT_API MermaidGraphIO : public GraphIO
     /// Creator
     static MermaidGraphIOPtr create();
 
-    string write(GraphElementPtr graph, const std::vector<OutputPtr> roots, bool writeCategoryNames) override;
+    string write(GraphElementPtr graph, const std::vector<OutputPtr> roots) override;
 
   protected:
     string writeRootNode(const NodeIO& root) override;
@@ -306,7 +393,7 @@ class MX_FORMAT_API MermaidGraphIO : public GraphIO
     string writeDownstreamNode(const NodeIO& node, const string& inputName) override;
     string writeSubgraphs(
         std::unordered_map<string, StringSet> subGraphs) override;
-    string writeGraphString(const string& graphString, const string& orientation) override;
+    string writeGraphString(const string& graphString) override;
 };
 
 /// Map of graph IO
@@ -336,10 +423,9 @@ class MX_FORMAT_API GraphIORegistry
     /// @param format Target format
     /// @param graph GraphElement to write
     /// @param roots List of possible roots
-    /// @param writeCategoryNames Write node labels using the category of the node as the label as
-    ///     opposed to the unique name of the Element. Default is to write category names.
+    /// @param options Write options
     string write(const string& format, GraphElementPtr graph, const std::vector<OutputPtr> roots, 
-                bool writeCategoryNames = true);
+                 const GraphIOWriteOptions& options);
 
   private:
     GraphIORegistry(const GraphIORegistry&) = delete;
