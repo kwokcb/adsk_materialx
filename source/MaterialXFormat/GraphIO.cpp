@@ -152,7 +152,7 @@ string GraphIO::writeGraph(GraphElementPtr graph, const std::vector<OutputPtr> r
                 string downstreamId = addNodeToSubgraph(subGraphs, downstreamElem, downstreamName);                        
 
                 nodeIO.identifier = downstreamId;
-                nodeIO.uilabel = writeCategoryNames ? downstreamCategory : downstreamName;
+                nodeIO.uilabel = (writeCategoryNames && (downstreamCategory != Output::CATEGORY)) ? downstreamCategory : downstreamName;
                 nodeIO.category = downstreamCategory;
                 nodeIO.uishape = NodeIO::BOX;
                 currentGraphString += writeDownstreamNode(nodeIO, inputName);
