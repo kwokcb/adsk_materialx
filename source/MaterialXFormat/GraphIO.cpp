@@ -111,7 +111,8 @@ void GraphIO::emitGraph(GraphElementPtr graph, const std::vector<OutputPtr> root
                 string upstreamId = addNodeToSubgraph(subGraphs, upstreamElem, upstreamElem->getName());
                 NodeIO nodeIO;                
                 NodePtr upstreamNode = upstreamElem->asA<Node>();
-                if (node)
+                nodeIO.group = EMPTY_STRING;
+                if (upstreamNode)
                 {
                     NodeDefPtr upstreamNodeDef = upstreamNode->getNodeDef();                    
                     nodeIO.group = upstreamNodeDef ? upstreamNodeDef->getNodeGroup() : EMPTY_STRING;
@@ -154,8 +155,9 @@ void GraphIO::emitGraph(GraphElementPtr graph, const std::vector<OutputPtr> root
                 nodeIO.uilabel = (writeCategoryNames && (downstreamCategory != Output::CATEGORY)) ? downstreamCategory : downstreamName;
                 nodeIO.category = downstreamCategory;
                 nodeIO.uishape = NodeIO::NodeShape::BOX;
+                nodeIO.group = EMPTY_STRING;
                 NodePtr downstreamNode = downstreamElem->asA<Node>();
-                if (node)
+                if (downstreamNode)
                 {
                     NodeDefPtr downstreamNodeDef = downstreamNode->getNodeDef();
                     nodeIO.group = downstreamNodeDef ? downstreamNodeDef->getNodeGroup() : EMPTY_STRING;
