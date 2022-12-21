@@ -73,8 +73,9 @@ TEST_CASE("GraphIO: Generate Functional Graphs", "[graphio]")
 
             for (const std::string& extension : extensions)
             {
-                mx::GraphIOWriteOptions graphOptions;
+                mx::GraphIOGenOptions graphOptions;
                 graphOptions.setWriteSubgraphs(false);
+                graphOptions.setOrientation(mx::GraphIOGenOptions::Orientation::LEFT_RIGHT);
 
                 for (auto writeCategories : writeCategoriesList)
                 {

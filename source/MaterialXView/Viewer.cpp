@@ -1642,7 +1642,7 @@ void Viewer::saveDiagrams()
                 formatString = "dot";
             }
             
-            mx::GraphIOWriteOptions graphOptions;
+            mx::GraphIOGenOptions graphOptions;
             graphOptions.setWriteCategories(_diagramWriteCategoryNames);
             outputString = _graphIORegistry->write(formatString, graphNode, outputs, graphOptions);
             if (!outputString.empty())

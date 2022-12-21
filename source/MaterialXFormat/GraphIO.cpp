@@ -54,9 +54,9 @@ string GraphIO::addNodeToSubgraph(std::unordered_map<string, StringSet>& subGrap
     return subgraphNodeName;
 }
 
-string GraphIO::writeGraph(GraphElementPtr graph, const std::vector<OutputPtr> roots)
+void GraphIO::emitGraph(GraphElementPtr graph, const std::vector<OutputPtr> roots)
 {
-    string currentGraphString;
+    _graphResult.clear();
 
     // Write out all connections.
     std::set<Edge> processedEdges;
@@ -76,7 +76,7 @@ string GraphIO::writeGraph(GraphElementPtr graph, const std::vector<OutputPtr> r
         outputs = graph->getOutputs();
     }
 
-    bool writeCategoryNames = _writeOptions.getWriteCategories();
+    bool writeCategoryNames = _genOptions.getWriteCategories();
     for (OutputPtr output : outputs)
     {
         ElementPtr root;
@@ -113,15 +113,14 @@ string GraphIO::writeGraph(GraphElementPtr graph, const std::vector<OutputPtr> r
                 NodePtr upstreamNode = upstreamElem->asA<Node>();
                 if (node)
                 {
-                    NodeDefPtr upstreamNodeDef = upstreamNode->getNodeDef();
-                    
+                    NodeDefPtr upstreamNodeDef = upstreamNode->getNodeDef();                    
                     nodeIO.group = upstreamNodeDef ? upstreamNodeDef->getNodeGroup() : EMPTY_STRING;
                 }
                 nodeIO.identifier = upstreamId;
                 nodeIO.uilabel = writeCategoryNames ? upstreamElem->getCategory() : upstreamId;
                 nodeIO.category = upstreamElem->getCategory();
-                nodeIO.uishape = NodeIO::BOX;
-                currentGraphString += writeUpstreamNode(nodeIO);
+                nodeIO.uishape = NodeIO::NodeShape::BOX;
+                emitUpstreamNode(nodeIO);
 
                 // Add connecting edges
                 //
@@ -144,7 +143,7 @@ string GraphIO::writeGraph(GraphElementPtr graph, const std::vector<OutputPtr> r
                         outputPort = addNodeToSubgraph(subGraphs, upstreamElem, upstreamId + outputLabel);                        
                     }
                 }
-                currentGraphString += writeConnection(outputPort, outputLabel, inputName, channelName);
+                emitConnection(outputPort, outputLabel, inputName, channelName);
 
                 // Add downstream
                 string downstreamCategory = downstreamElem->getCategory();
@@ -154,8 +153,14 @@ string GraphIO::writeGraph(GraphElementPtr graph, const std::vector<OutputPtr> r
                 nodeIO.identifier = downstreamId;
                 nodeIO.uilabel = (writeCategoryNames && (downstreamCategory != Output::CATEGORY)) ? downstreamCategory : downstreamName;
                 nodeIO.category = downstreamCategory;
-                nodeIO.uishape = NodeIO::BOX;
-                currentGraphString += writeDownstreamNode(nodeIO, inputName);
+                nodeIO.uishape = NodeIO::NodeShape::BOX;
+                NodePtr downstreamNode = downstreamElem->asA<Node>();
+                if (node)
+                {
+                    NodeDefPtr downstreamNodeDef = downstreamNode->getNodeDef();
+                    nodeIO.group = downstreamNodeDef ? downstreamNodeDef->getNodeGroup() : EMPTY_STRING;
+                }
+                emitDownstreamNode(nodeIO, inputName);
 
                 const string upstreamNodeName = upstreamNode ? upstreamNode->getName() : EMPTY_STRING;
                 if (upstreamNode && !processedInterfaces.count(upstreamNodeName))
@@ -189,10 +194,9 @@ string GraphIO::writeGraph(GraphElementPtr graph, const std::vector<OutputPtr> r
                                 nodeIO.identifier = interiorNodeId;
                                 nodeIO.uilabel = writeCategoryNames ? interiorNodeCategory : interiorNodeLabel;
                                 nodeIO.category = interiorNodeCategory;
-                                nodeIO.uishape = NodeIO::ROUNDEDBOX;
-                                currentGraphString += 
-                                    writeInterfaceConnection(graphInterfaceName, interfaceInputName,
-                                                             internorInputName, nodeIO);
+                                nodeIO.uishape = NodeIO::NodeShape::ROUNDEDBOX;
+                                emitInterfaceConnection(graphInterfaceName, interfaceInputName,
+                                                        internorInputName, nodeIO);
                             }
                         }
                     }
@@ -208,23 +212,19 @@ string GraphIO::writeGraph(GraphElementPtr graph, const std::vector<OutputPtr> r
             nodeIO.identifier = createValidName(root->getNamePath());
             nodeIO.category = root->getCategory();
             nodeIO.uilabel = writeCategoryNames ? nodeIO.category : nodeIO.identifier;
-            nodeIO.uishape = NodeIO::BOX;
-            currentGraphString += writeRootNode(nodeIO);
+            nodeIO.uishape = NodeIO::NodeShape::BOX;
+            emitRootNode(nodeIO);
         }
     }
 
     // Add output for nodes in subgraphs if option set
-    // Needs to be done before the graph for GraphViz output.
-    if (_writeOptions.getWriteSubgraphs())
+    if (_genOptions.getWriteSubgraphs())
     {
-        string subGraphString = writeSubgraphs(subGraphs);
-        currentGraphString = subGraphString + currentGraphString;
+        emitSubgraphs(subGraphs);
     }
 
     // Output entire graph
-    string outputString = writeGraphString(currentGraphString);
-
-    return outputString;
+    emitGraphString();
 }
 
 // dot class methods
@@ -234,72 +234,66 @@ DotGraphIOPtr DotGraphIO::create()
     return std::shared_ptr<DotGraphIO>(new DotGraphIO());
 }
 
-string DotGraphIO::writeRootNode(const NodeIO& root)
+void DotGraphIO::emitRootNode(const NodeIO& root)
 {
-    string result;
-    result += GRAPH_INDENT + root.identifier + " [label= \"" + root.uilabel + "\"]\n";
-    result += GRAPH_INDENT + root.identifier + "[shape = box];\n";
-    result += GRAPH_INDENT + root.identifier;
-    return result;
+    _graphResult += GRAPH_INDENT + root.identifier + " [label= \"" + root.uilabel + "\"]\n";
+    _graphResult += GRAPH_INDENT + root.identifier + "[shape = box];\n";
+    _graphResult += GRAPH_INDENT + root.identifier;
 }
 
-string DotGraphIO::writeUpstreamNode(
+void DotGraphIO::emitUpstreamNode(
     const NodeIO& node)
 {
-    string result;
-    result += GRAPH_INDENT + node.identifier + " [label= \"" + node.uilabel + "\"];\n";
+    _graphResult += GRAPH_INDENT + node.identifier + " [label= \"" + node.uilabel + "\"];\n";
     const string shape = (node.group == NodeDef::CONDITIONAL_NODE_GROUP) ? "diamond" : "box";
-    result += GRAPH_INDENT + node.identifier + "[shape = " + shape + "];\n";
-    result += GRAPH_INDENT + node.identifier;
-    return result;
+    _graphResult += GRAPH_INDENT + node.identifier + "[shape = " + shape + "];\n";
+    _graphResult += GRAPH_INDENT + node.identifier;
 }
 
-string DotGraphIO::writeConnection(const string& outputName,
+void DotGraphIO::emitConnection(const string& outputName,
                                    const string& outputLabel,
                                    const string& inputName,
                                    const string& channelName)
 {
-    string dot;
-
-    dot += " -> ";
+    string result = " -> ";
     if (!inputName.empty())
     {
         if (!outputLabel.empty() && !outputName.empty())
         {
-            dot += outputName + ";\n";
+            result += outputName + ";\n";
             if (channelName.empty())
             {
-                dot += GRAPH_INDENT + outputName + " [label= \"" + outputLabel + "." + channelName + "\"];\n";
+                result += GRAPH_INDENT + outputName + " [label= \"" + outputLabel + "." + channelName + "\"];\n";
             }
             else
             {
-                dot += GRAPH_INDENT + outputName + " [label= \"" + outputLabel + "\"];\n";
+                result += GRAPH_INDENT + outputName + " [label= \"" + outputLabel + "\"];\n";
             }
-            dot += GRAPH_INDENT + outputName + " [label= \"" + outputLabel + "\"];\n";
-            dot += GRAPH_INDENT + outputName + " [shape = ellipse];\n";
-            dot += GRAPH_INDENT + outputName + " -> ";
+            result += GRAPH_INDENT + outputName + " [label= \"" + outputLabel + "\"];\n";
+            result += GRAPH_INDENT + outputName + " [shape = ellipse];\n";
+            result += GRAPH_INDENT + outputName + " -> ";
         }
     }
     
-    return dot;
+    _graphResult += result;
 }
 
-string DotGraphIO::writeInterfaceConnection(const string& interfaceId,
-                                            const string& interfaceInputName,
-                                            const string& inputName,
-                                            const NodeIO& interiorNode)
+void DotGraphIO::emitInterfaceConnection(const string& interfaceId,
+                                         const string& interfaceInputName,
+                                         const string& inputName,
+                                         const NodeIO& interiorNode)
 {
-    string dot;
-    dot += GRAPH_INDENT + interfaceId + " [label=\"" + interfaceInputName + "\"];\n";
-    dot += GRAPH_INDENT + interfaceId + " [shape = ellipse];\n";
-    dot += GRAPH_INDENT + interiorNode.identifier + " [label=\"" + interiorNode.uilabel + "\"];\n";
-    dot += GRAPH_INDENT + interfaceId + " -> " + interiorNode.identifier +
+    string result;
+    result += GRAPH_INDENT + interfaceId + " [label=\"" + interfaceInputName + "\"];\n";
+    result += GRAPH_INDENT + interfaceId + " [shape = ellipse];\n";
+    result += GRAPH_INDENT + interiorNode.identifier + " [label=\"" + interiorNode.uilabel + "\"];\n";
+    result += GRAPH_INDENT + interfaceId + " -> " + interiorNode.identifier +
         " [label=" + GRAPH_QUOTE + "." + inputName + GRAPH_QUOTE + "];\n";
 
-    return dot;
+    _graphResult += result;
 }
 
-string DotGraphIO::writeDownstreamNode(const NodeIO& node, const string& inputLabel)
+void DotGraphIO::emitDownstreamNode(const NodeIO& node, const string& inputLabel)
 {
     string result;
     result += GRAPH_INDENT + node.identifier;
@@ -310,22 +304,23 @@ string DotGraphIO::writeDownstreamNode(const NodeIO& node, const string& inputLa
     result += ";\n";
     
     result += GRAPH_INDENT + node.identifier + " [label= \"" + node.uilabel + "\"];\n";
-    result += GRAPH_INDENT + node.identifier + "[shape = box];\n";
+    const string shape = (node.group == NodeDef::CONDITIONAL_NODE_GROUP) ? "diamond" : "box";
+    result += GRAPH_INDENT + node.identifier + "[shape = " + shape + "]; \n";
 
-    return result;
+    _graphResult += result;
 }
 
-string DotGraphIO::writeSubgraphs(std::unordered_map<string, StringSet> subGraphs)
+void DotGraphIO::emitSubgraphs(std::unordered_map<string, StringSet> subGraphs)
 {
-    string result = EMPTY_STRING;
-    if (!_writeOptions.getWriteSubgraphs())
+    if (!_genOptions.getWriteSubgraphs() || subGraphs.empty())
     {
-        return result;
+        return;
     }
 
+    string result = EMPTY_STRING;
     unsigned int clusterNumber = 1;
     const string CLUSTER_STRING = "cluster_";
-    for (auto subGraph : subGraphs)
+    for (const auto& subGraph : subGraphs)
     {
         // Note that the graph must start with the prefix "cluster"
         result += GRAPH_INDENT + "subgraph " + CLUSTER_STRING + std::to_string(clusterNumber)+ "{\n";
@@ -343,21 +338,31 @@ string DotGraphIO::writeSubgraphs(std::unordered_map<string, StringSet> subGraph
 
         clusterNumber++;
     }
-    return result;
+
+    // Needs to emit subgraphs before the graph for GraphViz output.
+    _graphResult = result + _graphResult;
 }
 
-string DotGraphIO::writeGraphString(const string& graphString)
+void DotGraphIO::emitGraphString()
 {
-    string dot = "digraph {\n";
-    dot += graphString;
-    dot += "}\n";
+    std::unordered_map<int, string> orientations;
+    orientations[(int)GraphIOGenOptions::Orientation::TOP_DOWN] = "  rankdir = TD;\n";
+    orientations[(int)GraphIOGenOptions::Orientation::BOTTOM_UP] = "  rankdir = BT;\n";
+    orientations[(int)GraphIOGenOptions::Orientation::LEFT_RIGHT] = "  rankdir = LR;\n";
+    orientations[(int)GraphIOGenOptions::Orientation::RIGHT_LEFT] = "  rankdir = RL\n";
 
-    return dot;
+    string result = "digraph {\n";
+    result += orientations[(int)_genOptions.getOrientation()];
+    result += _graphResult;
+    result += "}\n";
+
+    _graphResult = result;
 }
 
 string DotGraphIO::write(GraphElementPtr graph, const std::vector<OutputPtr> roots)
 {
-    return writeGraph(graph, roots);
+    emitGraph(graph, roots);
+    return _graphResult;
 }
 
 // Mermaid graph methods
@@ -367,7 +372,7 @@ MermaidGraphIOPtr MermaidGraphIO::create()
     return std::shared_ptr<MermaidGraphIO>(new MermaidGraphIO());
 }
 
-string MermaidGraphIO::writeUpstreamNode(const NodeIO& node)
+void MermaidGraphIO::emitUpstreamNode(const NodeIO& node)
 {
     string result;
     if (node.group == NodeDef::CONDITIONAL_NODE_GROUP)
@@ -378,13 +383,13 @@ string MermaidGraphIO::writeUpstreamNode(const NodeIO& node)
     {
         result = GRAPH_INDENT + node.identifier + "[" + node.uilabel + "]";
     }
-    return result;
+    _graphResult += result;
 }
 
-string MermaidGraphIO::writeConnection(const string& outputName,
-                                       const string& outputLabel, 
-                                       const string& inputName, 
-                                       const string& channelName)
+void MermaidGraphIO::emitConnection(const string& outputName,
+                                    const string& outputLabel, 
+                                    const string& inputName, 
+                                    const string& channelName)
 {
     string result;
 
@@ -415,28 +420,35 @@ string MermaidGraphIO::writeConnection(const string& outputName,
         result = " --> ";
     }
 
-    return result;
+    _graphResult += result;
 }
 
-string MermaidGraphIO::writeDownstreamNode(const NodeIO& node, const string& /*inputLabel*/)
+void MermaidGraphIO::emitDownstreamNode(const NodeIO& node, const string& /*inputLabel*/)
 {
     string result;
     if (node.category != Output::CATEGORY)
     {
-        result = node.identifier + "[" + node.uilabel + "]" + "\n";
+        if (node.group == NodeDef::CONDITIONAL_NODE_GROUP)
+        {
+            result = node.identifier + "{" + node.uilabel + "}" + "\n";
+        }
+        else
+        {
+            result = node.identifier + "[" + node.uilabel + "]" + "\n";
+        }
     }
     else
     {
         result = node.identifier + "([" + node.uilabel + "])" + "\n";
         result += GRAPH_INDENT + "style " + node.identifier + " fill:#1b1, color:#111\n";
     }
-    return result;
+    _graphResult += result;
 }
 
-string MermaidGraphIO::writeInterfaceConnection(const string& interfaceId,
-                                                const string& interfaceInputName,
-                                                const string& inputName,
-                                                const NodeIO& interiorNode)
+void MermaidGraphIO::emitInterfaceConnection(const string& interfaceId,
+                                             const string& interfaceInputName,
+                                             const string& inputName,
+                                             const NodeIO& interiorNode)
 {
     string result;
     result = GRAPH_INDENT + interfaceId + "([" + interfaceInputName + "])";
@@ -444,21 +456,21 @@ string MermaidGraphIO::writeInterfaceConnection(const string& interfaceId,
     result += "==> " + interiorNode.identifier + "[" + interiorNode.uilabel + "]" + "\n";
     result += GRAPH_INDENT + "style " + interfaceId + " fill:#0bb, color:#111\n";
 
-    return result;
+    _graphResult += result;
 }
 
-string MermaidGraphIO::writeRootNode(const NodeIO& root)
+void  MermaidGraphIO::emitRootNode(const NodeIO& root)
 {
     string result = "   " + root.identifier + "[" + root.uilabel + "]\n";
-    return result;
+    _graphResult += result;
 }
 
-string MermaidGraphIO::writeSubgraphs(std::unordered_map<string, StringSet> subGraphs)
+void MermaidGraphIO::emitSubgraphs(std::unordered_map<string, StringSet> subGraphs)
 {
     string result = EMPTY_STRING;
-    if (!_writeOptions.getWriteSubgraphs())
+    if (!_genOptions.getWriteSubgraphs())
     {
-        return result;
+        return;
     }
 
     for (auto subGraph : subGraphs)
@@ -470,26 +482,27 @@ string MermaidGraphIO::writeSubgraphs(std::unordered_map<string, StringSet> subG
         }
         result += "  end\n";
     }
-    return result;
+
+    _graphResult += result;
 }
 
-string MermaidGraphIO::writeGraphString(const string& graphString)
+void MermaidGraphIO::emitGraphString()
 {
     std::unordered_map<int, string> orientations;
-    orientations[(int)GraphIOWriteOptions::Orientation::TOP_DOWN] = "TD";
-    orientations[(int)GraphIOWriteOptions::Orientation::BOTTOM_UP] = "BT";
-    orientations[(int)GraphIOWriteOptions::Orientation::LEFT_RIGHT] = "LR";
-    orientations[(int)GraphIOWriteOptions::Orientation::RIGHT_LEFT] = "RL";
+    orientations[(int)GraphIOGenOptions::Orientation::TOP_DOWN] = "TD";
+    orientations[(int)GraphIOGenOptions::Orientation::BOTTOM_UP] = "BT";
+    orientations[(int)GraphIOGenOptions::Orientation::LEFT_RIGHT] = "LR";
+    orientations[(int)GraphIOGenOptions::Orientation::RIGHT_LEFT] = "RL";
 
-
-    string result = "graph " + orientations[(int)_writeOptions.getOrientation()] + "; \n";
-    result += graphString;
-    return result;
+    string result = "graph " + orientations[(int)_genOptions.getOrientation()] + "; \n";
+    result += _graphResult;
+    _graphResult = result;
 }
 
 string MermaidGraphIO::write(GraphElementPtr graph, const std::vector<OutputPtr> roots)
 {
-    return writeGraph(graph, roots);
+    emitGraph(graph, roots);
+    return _graphResult;
 }
 
 GraphIORegistryPtr GraphIORegistry::create()
@@ -510,7 +523,7 @@ void GraphIORegistry::addGraphIO(GraphIOPtr graphIO)
 }
 
 string GraphIORegistry::write(const string& format, GraphElementPtr graph, const std::vector<OutputPtr> roots, 
-                               const GraphIOWriteOptions& options)
+                               const GraphIOGenOptions& options)
 
 {
     string result = EMPTY_STRING;
@@ -518,7 +531,7 @@ string GraphIORegistry::write(const string& format, GraphElementPtr graph, const
     {
         try
         {
-            graphIO->setWriteOptions(options);
+            graphIO->setGenOptions(options);
             result = graphIO->write(graph, roots);
         }
         catch (std::exception& e)

@@ -109,7 +109,11 @@ def printNodeDefs(doc, opts):
                 ng = nd.getImplementation()
                 if ng and ng.isA(mx.NodeGraph):
                     outputList = ng.getOutputs()
-                    mdoutput = graphio.write('md', ng, outputList, True)
+                    # Don't want subgraph as the implemention is a subgraph
+                    graphOptions = mx.GraphIOGenOptions()
+                    graphOptions.setWriteSubgraphs(False)
+                    graphOptions.setOrientation(mx.GraphOrientation.LEFT_RIGHT)
+                    mdoutput = graphio.write('md', ng, outputList, graphOptions)
                     print('<li> <em>Nodegraph</em>: %s' % ng.getName())
                     if mdoutput:
                         print('<pre><code class="language-mermaid"><div class="mermaid">')
@@ -180,10 +184,10 @@ def printNodeDefs(doc, opts):
                 if ng and ng.isA(mx.NodeGraph):
                     outputList = ng.getOutputs()
                     # Don't want subgraph as the implemention is a subgraph
-                    graphOptions = mx.GraphIOWriteOptions()
+                    graphOptions = mx.GraphIOGenOptions()
                     graphOptions.setWriteSubgraphs(False)
-                    graphio.setWriteOptions(graphOptions)
-                    mdoutput = graphio.write('md', ng, outputList, True)
+                    graphOptions.setOrientation(mx.GraphOrientation.LEFT_RIGHT)
+                    mdoutput = graphio.write('md', ng, outputList, graphOptions)
                     print('* *Nodegraph*: %s' % ng.getName())
                     if mdoutput:
                         print('\n')

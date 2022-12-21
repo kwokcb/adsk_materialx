@@ -33,20 +33,20 @@ void bindPyGraphIO(py::module& mod)
         .value("DIAMOND", mx::NodeIO::NodeShape::DIAMOND)
         .export_values();
 
-    py::enum_<mx::GraphIOWriteOptions::Orientation>(mod, "GraphOrientation")
-        .value("TOP_DOWN", mx::GraphIOWriteOptions::Orientation::TOP_DOWN)
-        .value("BOTTOM_UP", mx::GraphIOWriteOptions::Orientation::BOTTOM_UP)
-        .value("LEFT_RIGHT", mx::GraphIOWriteOptions::Orientation::LEFT_RIGHT)
-        .value("RIGHT_LEFT", mx::GraphIOWriteOptions::Orientation::RIGHT_LEFT)
+    py::enum_<mx::GraphIOGenOptions::Orientation>(mod, "GraphOrientation")
+        .value("TOP_DOWN", mx::GraphIOGenOptions::Orientation::TOP_DOWN)
+        .value("BOTTOM_UP", mx::GraphIOGenOptions::Orientation::BOTTOM_UP)
+        .value("LEFT_RIGHT", mx::GraphIOGenOptions::Orientation::LEFT_RIGHT)
+        .value("RIGHT_LEFT", mx::GraphIOGenOptions::Orientation::RIGHT_LEFT)
         .export_values();
 
-    py::class_<mx::GraphIOWriteOptions>(mod, "GraphIOWriteOptions")
-        .def("setWriteCategories", &mx::GraphIOWriteOptions::setWriteCategories)
-        .def("getWriteCategories", &mx::GraphIOWriteOptions::getWriteCategories)
-        .def("setWriteSubgraphs", &mx::GraphIOWriteOptions::setWriteSubgraphs)
-        .def("getWriteSubgraphs", &mx::GraphIOWriteOptions::getWriteSubgraphs)
-        .def("setOrientation", &mx::GraphIOWriteOptions::setOrientation)
-        .def("getOrientation", &mx::GraphIOWriteOptions::getOrientation)
+    py::class_<mx::GraphIOGenOptions>(mod, "GraphIOGenOptions")
+        .def("setWriteCategories", &mx::GraphIOGenOptions::setWriteCategories)
+        .def("getWriteCategories", &mx::GraphIOGenOptions::getWriteCategories)
+        .def("setWriteSubgraphs", &mx::GraphIOGenOptions::setWriteSubgraphs)
+        .def("getWriteSubgraphs", &mx::GraphIOGenOptions::getWriteSubgraphs)
+        .def("setOrientation", &mx::GraphIOGenOptions::setOrientation)
+        .def("getOrientation", &mx::GraphIOGenOptions::getOrientation)
         .def(py::init<>());
 
     py::class_<mx::NodeIO>(mod, "NodeIO")
@@ -60,8 +60,8 @@ void bindPyGraphIO(py::module& mod)
     py::class_<mx::GraphIO, PyGraphIO, mx::GraphIOPtr>(mod, "GraphIO")
         .def("write", (std::string(mx::GraphIO::*)(mx::GraphElementPtr, const std::vector<mx::OutputPtr>, bool)) & mx::GraphIO::write)
         .def("supportsFormats", &mx::GraphIO::supportsFormats)
-        .def("setWriteOptions", &mx::GraphIO::setWriteOptions)
-        .def("getWriteOptions", &mx::GraphIO::getWriteOptions);
+        .def("setGenOptions", &mx::GraphIO::setGenOptions)
+        .def("getGenOptions", &mx::GraphIO::getGenOptions);
 
     py::class_<mx::DotGraphIO, mx::GraphIO, mx::DotGraphIOPtr>(mod, "DotGraphIO")
         .def_static("create", &mx::DotGraphIO::create)

@@ -46,7 +46,7 @@ class MX_FORMAT_API NodeIO
 {
   public:
     /// UI node shapes
-    enum NodeShape
+    enum class NodeShape
     {
         BOX = 0,        /// Box shape. Used for non interface nodes
         ROUNDEDBOX = 1, /// Rounded box shape. Used to indicate interface input and output nodes
@@ -66,14 +66,17 @@ class MX_FORMAT_API NodeIO
     string group;
 
     /// Node UI shape. Default is box.
-    NodeShape uishape = BOX;
+    NodeShape uishape = NodeShape::BOX;
 };
 
-class MX_FORMAT_API GraphIOWriteOptions
+/// @class GraphIOGenOptions
+///     Generation options for GraphIO generators    
+/// 
+class MX_FORMAT_API GraphIOGenOptions
 {
   public:
-    GraphIOWriteOptions() {}
-    virtual ~GraphIOWriteOptions() {}
+    GraphIOGenOptions() {}
+    virtual ~GraphIOGenOptions() {}
 
     /// Option on whether to write node labels using the category of the node as the label as
     /// opposed to the unique name of the Element. Default is to write category names.
@@ -141,17 +144,18 @@ class MX_FORMAT_API GraphIOWriteOptions
 
 /// @class GraphIO
 /// <summary>
-///     Interface defining classes which can write a given non-MaterialX GraphElement
-///     to another format The formatted input is assumed to be writeable to 
-///     a string.
+///     Interface defining classes which interpret a GraphElement and 
+///     generate output in the desired output format. 
 /// 
-///     The class indicates which formats are supported by a list of strings.
-///     This is used to register the interface with a GraphIORegistry.
+///     The output is assumed to be representable by a string, but subclasses
+///     may choose their own runtime representation.
 /// 
-///     Default traversal logic is provided which calls into a set of utities
-///     which are responsdible for producing the appropriate string output.
-///     A defived class may chose to implement these methods or write their
-///     own traversal logic.
+///     The class indicates which formats are supported via a list of string identifiers.
+///     These identifiers can be used to register the class with a GraphIORegistry.
+/// 
+///     The default traversal logic will call into a set of utities
+///     which are responsible for emitting the appropriate output in the desired format.
+///     A derived class may chose to implement their own traversal logic as well.
 ///     
 /// </summary>
 class MX_FORMAT_API GraphIO
@@ -160,81 +164,71 @@ class MX_FORMAT_API GraphIO
     GraphIO(){};
     virtual ~GraphIO(){};
 
-    /// Returns a list of formats that the GraphIO can convert from MaterialX to a given format
+    /// Returns a list of formats that the GraphIO can convert from to
     const StringSet& supportsFormats() const
     {
         return _formats;
     }
 
     /// @name I/O methods
+    /// @{
 
-    /// Traverse a graph and return a string
-    /// Derived classes must implement this method
+    /// Traverse a graph and return a string withe formatted output
+    /// Derived classes must implement this method.
     /// @param graph GraphElement to write
     /// @param roots Optional list of roots to GraphIO what upstream elements to consider>
-    /// @param writeCategoryNames Use names of categories versus instance names for nodes. Default is true.
-    /// @returns Buffer result
+    /// @returns String result
     virtual string write(GraphElementPtr graph, const std::vector<OutputPtr> roots) = 0;
 
     /// @}
     /// @name Options to set before writing
     /// @{
 
-    /// Get options for writing
-    const GraphIOWriteOptions& getWriteOptions() const
+    /// Get options for generation
+    const GraphIOGenOptions& getGenOptions() const
     {
-        return _writeOptions;
+        return _genOptions;
     }
 
-    /// Set options for writing
-    void setWriteOptions(const GraphIOWriteOptions& options)
+    /// Set options for generation
+    void setGenOptions(const GraphIOGenOptions& options)
     {
-        _writeOptions = options;
+        _genOptions = options;
     }
 
   protected:
-    /// @name Graph Writing Utilties
+    /// @name Generation Utilties
     /// @{
 
-    /// Traverse a graph and return a string. If used the additional utility
-    /// methods must be implemented with the exception of writeSubgraphs()
-    /// which is used to create groupings of nodes.
-    /// 
-    /// @param graph GraphElement to write
-    /// @param roots Optional list of roots to GraphIO what upstream elements to consider>
-    /// @returns Buffer result
-    virtual string writeGraph(GraphElementPtr graph, const std::vector<OutputPtr> roots);
+    /// Traverse a graph and call into utility methods to emit which handle emitting the 
+    /// appropriate output. 
+    /// @param graph GraphElement to traverse
+    /// @param roots Optional list of roots indicating what upstream elements to consider.
+    ///              If empty, then all of the graph's outputs are traversed.
+    virtual void emitGraph(GraphElementPtr graph, const std::vector<OutputPtr> roots);
       
-    /// Write root node only. Called when there are no downstream.
-    /// connections.
+    /// Emit the root node only. Called when there are no downstream connections.
     /// @param root Root node
-    /// @return Written string result
-    virtual string writeRootNode(const NodeIO& root)
+    virtual void emitRootNode(const NodeIO& root)
     {
         (void)(root);
-        return EMPTY_STRING;
     }
 
-    /// Write upstream node and label 
-    /// @param node Write upstream node
-    /// @return Written string result
-    virtual string writeUpstreamNode(const NodeIO& node)
+    /// Emit the upstream node on a connection
+    /// @param node Upstream node
+    virtual void emitUpstreamNode(const NodeIO& node)
     {
         (void)(node);
-        return EMPTY_STRING;
     }
 
-    /// Write the connection from an upstream node to a
-    /// downstream node. Include upstream portand downstream
-    /// input if specified.
+    /// Emit the connection from an upstream node to a downstream node. 
     /// @param outputName Name of the upstream output
     /// @param outputLabel ui labelfor the upstream output
     /// @param inputName name of input on downstream node 
     /// @param channelName name of channel on downstream input. 
     /// This would be the equivalent of having an `extract` node between upstream output and downstream input.
-    /// May be empty.
-    /// @return Written string result
-    virtual string writeConnection(
+    /// This argument may be empty.
+    virtual void emitConnection(
         const string& outputName,
         const string& outputLabel, 
         const string& inputName,
@@ -244,16 +238,14 @@ class MX_FORMAT_API GraphIO
         (void)(outputLabel);
         (void)(inputName);
         (void)(channelName);
-        return EMPTY_STRING;
     }
 
-    /// Write interface connection
+    /// Emit a connection between an interface input and a input on a node in a GraphElement
     /// @param interfaceId Identifier for interface
     /// @param interfaceInputName Identifier for interface input
     /// @param inputName Name of input on interior node
     /// @param interiorNode Interior node information
-    /// @return Written string result
-    virtual string writeInterfaceConnection(
+    virtual void emitInterfaceConnection(
         const string& interfaceId,
         const string& interfaceInputName,
         const string& inputName,
@@ -263,38 +255,29 @@ class MX_FORMAT_API GraphIO
         (void)(interfaceInputName);
         (void)(inputName);
         (void)(interiorNode);
-        return EMPTY_STRING;
     }
 
-    /// Write downstream node and label
+    /// Emit downstream node and label
     /// @param node Node information to write
     /// @param inputLabel input on node
     /// @return Written string result
-    virtual string writeDownstreamNode(const NodeIO& node,
-                                       const string& inputLabel)
+    virtual void emitDownstreamNode(const NodeIO& node,
+                                    const string& inputLabel)
     {
         (void)(node);
         (void)(inputLabel);
-        return EMPTY_STRING;
     }
 
-    /// Write sub-graph groupings. For now the only subgraphs supported
-    /// are NodeGraphs
+    /// Emit sub-graph groupings. For now the groupings supported are NodeGraphs
     /// @param  subGraphs List of sub-graphs to write
-    /// @return Written string result
-    virtual string writeSubgraphs(std::unordered_map<string, StringSet> subGraphs)
+    virtual void emitSubgraphs(std::unordered_map<string, StringSet> subGraphs)
     {
         (void)(subGraphs);
-        return EMPTY_STRING;
     }
 
     /// Write GraphElement
-    /// @param graphString Name to use for the graph 
-    /// @return Written string result
-    virtual string writeGraphString(const string& graphString)
+    virtual void emitGraphString()
     {
-        (void)(graphString);
-        return EMPTY_STRING;
     }
 
     /// @}
@@ -321,9 +304,15 @@ class MX_FORMAT_API GraphIO
     StringMap _restrictedMap;
 
     /// Write options
-    GraphIOWriteOptions _writeOptions;
+    GraphIOGenOptions _genOptions;
+
+    /// Written output
+    string _graphResult;
 };
 
+/// @class DotGraphIO
+///     Class which provides support for outputting to GraphViz dot format.
+/// 
 class MX_FORMAT_API DotGraphIO : public GraphIO
 {
 public:
@@ -339,25 +328,31 @@ public:
     string write(GraphElementPtr graph, const std::vector<OutputPtr> roots) override;
 
   protected:
-    string writeRootNode(const NodeIO& root) override;
-    string writeUpstreamNode(const NodeIO& node) override;
-    string writeConnection(
+    void emitRootNode(const NodeIO& root) override;
+    void emitUpstreamNode(const NodeIO& node) override;
+    void emitConnection(
         const string& outputName,
         const string& outputLabel,
         const string& inputName,
         const string& channelName) override;
-    string writeInterfaceConnection(
+    void emitInterfaceConnection(
         const string& interfaceId,
         const string& interfaceInputName,
         const string& inputName,
         const NodeIO& interiorNode) override;
-    string writeDownstreamNode(const NodeIO& node, const string& inputName) override;
-    string writeSubgraphs(
+    void emitDownstreamNode(const NodeIO& node, const string& inputName) override;
+    void emitSubgraphs(
         std::unordered_map<string, StringSet> subGraphs) override;
-    string writeGraphString(const string& graphString) override;
+    void emitGraphString() override;
 };
     
 
+/// @class MermaidGraphIO
+/// 
+///     Class which provides support for outputting to Mermaid format.
+///     Note that the output only includes the Mermaid graph itself and does not include 
+///     wrappers for embedding into Markdown or HTML.
+/// 
 class MX_FORMAT_API MermaidGraphIO : public GraphIO
 {
   public:
@@ -378,22 +373,22 @@ class MX_FORMAT_API MermaidGraphIO : public GraphIO
     string write(GraphElementPtr graph, const std::vector<OutputPtr> roots) override;
 
   protected:
-    string writeRootNode(const NodeIO& root) override;
-    string writeUpstreamNode(const NodeIO& node) override;
-    string writeConnection(
+    void emitRootNode(const NodeIO& root) override;
+    void emitUpstreamNode(const NodeIO& node) override;
+    void emitConnection(
         const string& outputName,
         const string& outputLabel,
         const string& inputName,
         const string& channelName) override;
-    string writeInterfaceConnection(
+    void emitInterfaceConnection(
         const string& interfaceId,
         const string& interfaceInputName,
         const string& inputName,
         const NodeIO& interiorNode) override;
-    string writeDownstreamNode(const NodeIO& node, const string& inputName) override;
-    string writeSubgraphs(
+    void emitDownstreamNode(const NodeIO& node, const string& inputName) override;
+    void emitSubgraphs(
         std::unordered_map<string, StringSet> subGraphs) override;
-    string writeGraphString(const string& graphString) override;
+    void emitGraphString() override;
 };
 
 /// Map of graph IO
@@ -425,7 +420,7 @@ class MX_FORMAT_API GraphIORegistry
     /// @param roots List of possible roots
     /// @param options Write options
     string write(const string& format, GraphElementPtr graph, const std::vector<OutputPtr> roots, 
-                 const GraphIOWriteOptions& options);
+                 const GraphIOGenOptions& options);
 
   private:
     GraphIORegistry(const GraphIORegistry&) = delete;
