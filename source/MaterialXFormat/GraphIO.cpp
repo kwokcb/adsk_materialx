@@ -191,14 +191,14 @@ void GraphIO::emitGraph(GraphElementPtr graph, const std::vector<OutputPtr> root
                                 const string interiorNodeLabel = writeCategoryNames ? interiorNodeCategory : interiorNodeId;
 
                                 const string interfaceInputName = input->getInterfaceName();
-                                const string internorInputName = input->getName();
+                                const string interiorInputName = input->getName();
 
                                 nodeIO.identifier = interiorNodeId;
                                 nodeIO.uilabel = writeCategoryNames ? interiorNodeCategory : interiorNodeLabel;
                                 nodeIO.category = interiorNodeCategory;
                                 nodeIO.uishape = NodeIO::NodeShape::ROUNDEDBOX;
                                 emitInterfaceConnection(graphInterfaceName, interfaceInputName,
-                                                        internorInputName, nodeIO);
+                                                        interiorInputName, nodeIO);
                             }
                         }
                     }

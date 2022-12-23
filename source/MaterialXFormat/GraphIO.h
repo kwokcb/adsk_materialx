@@ -260,7 +260,6 @@ class MX_FORMAT_API GraphIO
     /// Emit downstream node and label
     /// @param node Node information to write
     /// @param inputLabel input on node
-    /// @return Written string result
     virtual void emitDownstreamNode(const NodeIO& node,
                                     const string& inputLabel)
     {
