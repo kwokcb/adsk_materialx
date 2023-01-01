@@ -81,8 +81,8 @@ void ShaderGraph::createConnectedNodes(const ElementPtr& downstreamElement,
     NodePtr upstreamNode = upstreamElement->asA<Node>();
     if (!upstreamNode)
     {
-        throw ExceptionShaderGenError("Upstream element to connect is not a node '" 
-            + upstreamElement->getName() + "'");
+        throw ExceptionShaderGenError("Upstream element to connect is not a node '" +
+                                      upstreamElement->getName() + "'");
     }
     const string& newNodeName = upstreamNode->getName();
     ShaderNode* newNode = getNode(newNodeName);
@@ -469,7 +469,8 @@ ShaderGraphPtr ShaderGraph::createSurfaceShader(
 
     ColorManagementSystemPtr colorManagementSystem = context.getShaderGenerator().getColorManagementSystem();
     string targetColorSpace = context.getOptions().targetColorSpaceOverride.empty() ?
-            node->getDocument()->getColorSpace() : context.getOptions().targetColorSpaceOverride;
+                              node->getDocument()->getColorSpace() :
+                              context.getOptions().targetColorSpaceOverride;
 
     const string& targetDistanceUnit = context.getOptions().targetDistanceUnit;
     UnitSystemPtr unitSystem = context.getShaderGenerator().getUnitSystem();
@@ -559,7 +560,7 @@ ShaderGraphPtr ShaderGraph::createSurfaceShader(
         if (input)
         {
             if (input->getPath().empty())
-            { 
+            {
                 input->setPath(path);
             }
             if (input->getUnit().empty() && !unit.empty())
@@ -836,7 +837,8 @@ ShaderNode* ShaderGraph::createNode(const Node& node, GenContext& context)
 
     ColorManagementSystemPtr colorManagementSystem = context.getShaderGenerator().getColorManagementSystem();
     string targetColorSpace = context.getOptions().targetColorSpaceOverride.empty() ?
-        _document->getActiveColorSpace() : context.getOptions().targetColorSpaceOverride;
+                              _document->getActiveColorSpace() :
+                              context.getOptions().targetColorSpaceOverride;
 
     for (InputPtr input : node.getInputs())
     {
@@ -915,7 +917,7 @@ void ShaderGraph::finalize(GenContext& context)
 
     // Insert color transformation nodes where needed
     if (context.getOptions().emitColorTransforms)
-    { 
+    {
         for (const auto& it : _inputColorTransformMap)
         {
             addColorTransformNode(it.first, it.second, context);
@@ -948,7 +950,7 @@ void ShaderGraph::finalize(GenContext& context)
 
     // Calculate scopes for all nodes in the graph.
     //
-    // TODO: Enable calculateScopes() again when support for 
+    // TODO: Enable calculateScopes() again when support for
     // conditional nodes are improved.
     //
     // calculateScopes();
@@ -1047,8 +1049,7 @@ void ShaderGraph::optimize(GenContext& context)
             {
                 // Find which branch should be taken
                 ValuePtr value = which->getValue();
-                const int branch = int(value==nullptr ? 0 :
-                    (which->getType() == Type::FLOAT ? value->asA<float>() : value->asA<int>()));
+                const int branch = int(value == nullptr ? 0 : (which->getType() == Type::FLOAT ? value->asA<float>() : value->asA<int>()));
 
                 // Bypass the conditional using the taken branch
                 bypass(context, node, branch);
@@ -1141,7 +1142,7 @@ void ShaderGraph::bypass(GenContext& context, ShaderNode* node, size_t inputInde
             if (!channels.empty())
             {
                 downstream->setValue(context.getShaderGenerator().getSyntax().getSwizzledValue(input->getValue(),
-                                                                                          input->getType(), 
+                                                                                               input->getType(),
                                                                                           channels,
                                                                                           downstream->getType()));
                 downstream->setType(downstream->getType());
@@ -1318,7 +1319,7 @@ void ShaderGraph::setVariableNames(GenContext& context)
     }
 }
 
-string ShaderGraph::populateColorTransformMap(ColorManagementSystemPtr colorManagementSystem, ShaderPort* shaderPort, 
+string ShaderGraph::populateColorTransformMap(ColorManagementSystemPtr colorManagementSystem, ShaderPort* shaderPort,
                                               ValueElementPtr input, const string& targetColorSpace, bool asInput)
 {
     if (targetColorSpace.empty())
@@ -1337,7 +1338,7 @@ string ShaderGraph::populateColorTransformMap(ColorManagementSystemPtr colorMana
                 // Cache colorspace on shader port
                 shaderPort->setColorSpace(sourceColorSpace);
                 if (colorManagementSystem)
-                { 
+                {
                     ColorSpaceTransform transform(sourceColorSpace, targetColorSpace, shaderPort->getType());
                     if (colorManagementSystem->supportsTransform(transform))
                     {
