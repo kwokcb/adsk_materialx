@@ -10,7 +10,8 @@ import MaterialX as mx
 # Print the document for node definitions in a file
 def createMaterials(doc, opts):
 
-    ignoreNodeList = [ "surfacematerial", "volumematerial", "arrayappend", "dot_filename" ]
+    # thin_film_bsdf code generation produces undefined variable names for OSL and GLSL
+    ignoreNodeList = [ "thin_film_bsdf", "surfacematerial", "volumematerial", "arrayappend", "dot_filename" ]
     ignoreTypeList = [ "lightshader" ]
 
     nodedefs = doc.getNodeDefs()
@@ -18,8 +19,12 @@ def createMaterials(doc, opts):
     if nodedefCount == 0:
         print('No definitions to create materials for')
 
-    count = 0;
+    count = 0
     for nodedef in nodedefs:
+
+        nodeinterface = nodedef.getImplementation(opts.target)
+        if not nodeinterface: 
+            continue
 
         sourceUri = nodedef.getSourceUri()
         if opts.libName and sourceUri.find(opts.libName) == -1:
@@ -54,6 +59,10 @@ def createMaterials(doc, opts):
             if (not valueElem):
                 newElem = node.addInput(inputName, inputType)
                 newElem.copyContentFrom(input)
+                #if not newElem.getValue():
+                #    print('*** nodedef %s.%s missing value.' % (nodeName, inputName))
+                #    if  inputType == 'string':
+                #        newElem.setValueString("dummyString")
                 newElem.removeAttribute('doc')
 
         # Add outputs if none on node
@@ -103,13 +112,14 @@ def createMaterials(doc, opts):
                     newInput.setNodeName(node.getName())
                     if isMultiOutput:
                         newInput.setAttribute('output', outputName)
+                    materialNode = outdoc.addMaterialNode(materialNodeName, shaderNode)
                 else:
 
                     # Input to convert is upstream node
                     convertNodeName = node.getName()
-                    if outputType != 'color3':
+                    needExtraConvert = False
 
-                        needExtraConvert = False
+                    if outputType != 'color3':
 
                         # Add conversion node in between as there is no vec2 -> color3 node type
                         # Would be nice to have this added to avoid this extra step.
@@ -130,14 +140,15 @@ def createMaterials(doc, opts):
                         convertNode = outdoc.addNodeInstance(doc.getNodeDef('ND_' + convert2NodeName), convert2NodeName)
                         newInput = convertNode.addInput('in', outputType)
                         newInput.setNodeName(convertNodeName)                        
-                        if isMultiOutput and not needExtraConvert:
+                        if isMultiOutput:
                             newInput.setAttribute('output', outputName)
-                        convertNodeName = convert2NodeName                            
+                        convertNodeName = convert2NodeName   
+                        needExtraConvert = True                         
 
                     shaderNode = outdoc.addNode("surface_unlit", shaderNodeName, "surfaceshader")
                     newInput = shaderNode.addInput('emission_color', 'color3')
                     newInput.setNodeName(convertNodeName)
-                    if isMultiOutput:
+                    if isMultiOutput and not needExtraConvert:
                         newInput.setAttribute('output', outputName)
                     materialNode = outdoc.addMaterialNode(materialNodeName, shaderNode)
 
@@ -155,6 +166,7 @@ def main():
     parser.add_argument(dest="libraryPath", help="Path for MaterialX libraries.")
     parser.add_argument('--libName', dest='libName', help='Name of library to generate for. Does a match against the filename')
     parser.add_argument('--outputPath', dest='outputPath', help='File path to output material files to.')
+    parser.add_argument('--target', dest='target', default='genglsl', help='Shading language target. Default is genglsl')
 
     opts = parser.parse_args()
 
