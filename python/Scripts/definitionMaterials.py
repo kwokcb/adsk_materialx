@@ -87,7 +87,15 @@ def createMaterials(doc, opts):
                 materialNode = outdoc.addMaterialNode(materialNodeName, node)
             elif outputType == 'volumeshader':
                 materialNode = outdoc.addMaterialNode(materialNodeName, node)
-            #elif outputType == 'displacementshader': TODO
+
+            # TODO: Handle displacement shader    
+            #elif outputType == 'displacementshader': 
+
+            # TODO: Variations left for now (not exist for pbr library) 
+            # - Handle color4 split to color3 + alpha
+            # - Handle vector4 split to color3 + alpha
+            # - Handle int to color3
+            # - Handle boolean ?
             elif outputType in { 'float', 'vector2', 'vector3', 'color3', 'color4' }:
                 if outputType == 'float':
                     shaderNode = outdoc.addNode("surface_unlit", shaderNodeName, "surfaceshader")
