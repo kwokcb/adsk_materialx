@@ -1,11 +1,11 @@
 <?xml version="1.0"?>
 <materialx version="1.38">
 
-  <nodedef name="ND_convert_BSDF_material_1_0" node="convert" version="1.0" isdefaultversion="true" nodegroup="material" doc="Convert BSDF to material">
+  <nodedef name="ND_convert_BSDF_material" node="convert" version="1.0" isdefaultversion="true" nodegroup="material" doc="Convert BSDF to material">
     <input name="in" type="BSDF" value="" />
     <output name="out" type="material" />
   </nodedef>
-  <nodegraph name="NG_convert_BSDF_material_1_0" nodedef="ND_convert_BSDF_material_1_0">
+  <nodegraph name="NG_convert_BSDF_material" nodedef="ND_convert_BSDF_material">
     <surfacematerial name="surfacematerial" type="material">
       <input name="surfaceshader" type="surfaceshader" nodename="surface" />
       <input name="displacementshader" type="displacementshader" value="" />
@@ -17,11 +17,11 @@
     <output name="out" type="material" nodename="surfacematerial" />
   </nodegraph>
 
-  <nodedef name="ND_convert_EDF_material_1_0" node="convert" version="1.0" isdefaultversion="true" nodegroup="material" doc="Convert BSDF to material">
+  <nodedef name="ND_convert_EDF_material" node="convert" version="1.0" isdefaultversion="true" nodegroup="material" doc="Convert BSDF to material">
     <input name="in" type="EDF" value="" />
     <output name="out" type="material" />
   </nodedef>
-  <nodegraph name="NG_convert_EDF_material_1_0" nodedef="ND_convert_EDF_material_1_0">
+  <nodegraph name="NG_convert_EDF_material" nodedef="ND_convert_EDF_material">
     <surfacematerial name="surfacematerial" type="material" >
       <input name="surfaceshader" type="surfaceshader" nodename="surface" />
       <input name="displacementshader" type="displacementshader" value="" />
@@ -33,11 +33,11 @@
     <output name="out" type="material" nodename="surfacematerial" />
   </nodegraph>
 
-  <nodedef name="ND_convert_color3_material_1_0" node="convert" version="1.0" isdefaultversion="true" nodegroup="material" doc="Convert color3 to material">
-    <input name="in" type="color3" value="1, 1, 1" />
+  <nodedef name="ND_convert_color3_material" node="convert" version="1.0" isdefaultversion="true" nodegroup="material" doc="Convert color3 to material">
+    <input name="in" type="color3" value="0, 0, 0" />
     <output name="out" type="material" />
   </nodedef>
-  <nodegraph name="NG_convert_color3_material_1_0" nodedef="ND_convert_color3_material_1_0">
+  <nodegraph name="NG_convert_color3_material" nodedef="ND_convert_color3_material">
     <surface_unlit name="surface_unlit" type="surfaceshader" >
       <input name="emission_color" type="color3" interfacename="in" />
     </surface_unlit>
@@ -48,11 +48,11 @@
     <output name="out" type="material" nodename="surfacematerial" />
   </nodegraph>
 
-  <nodedef name="ND_convert_color4_material_1_0" node="convert" version="1.0" isdefaultversion="true" nodegroup="material" doc="Convert color4  to material">
+  <nodedef name="ND_convert_color4_material" node="convert" version="1.0" isdefaultversion="true" nodegroup="material" doc="Convert color4  to material">
     <input name="in" type="color4" value="0, 0, 0, 0" />
     <output name="out" type="material" />
   </nodedef>
-  <nodegraph name="NG_convert_color4_material_1_0" nodedef="ND_convert_color4_material_1_0">
+  <nodegraph name="NG_convert_color4_material" nodedef="ND_convert_color4_material">
     <surface_unlit name="surface_unlit" type="surfaceshader" >
       <input name="emission_color" type="color3" nodename="convert" />
       <input name="opacity" type="float" nodename="extract" />
@@ -71,11 +71,11 @@
     <output name="out" type="material" nodename="surfacematerial" />
   </nodegraph>
 
-  <nodedef name="ND_convert_displacementshader_material_1_0" node="convert" version="1.0" isdefaultversion="true" nodegroup="material" doc="Convert displacement shader to material">
+  <nodedef name="ND_convert_displacementshader_material" node="convert" version="1.0" isdefaultversion="true" nodegroup="material" doc="Convert displacement shader to material">
     <input name="in" type="displacementshader" value="" />
     <output name="out" type="material" />
   </nodedef>
-  <nodegraph name="NG_convert_displacementshader_material_1_0" nodedef="ND_convert_displacementshader_material_1_0">
+  <nodegraph name="NG_convert_displacementshader_material" nodedef="ND_convert_displacementshader_material">
     <surfacematerial name="surfacematerial" type="material" >
       <input name="surfaceshader" type="surfaceshader" value="" />
       <input name="displacementshader" type="displacementshader" interfacename="in" />
@@ -83,11 +83,11 @@
     <output name="out" type="material" nodename="surfacematerial" />
   </nodegraph>
 
-  <nodedef name="ND_convert_float_material_1_0" node="convert" version="1.0" isdefaultversion="true" nodegroup="material" doc="Convert float to material">
+  <nodedef name="ND_convert_float_material" node="convert" version="1.0" isdefaultversion="true" nodegroup="material" doc="Convert float to material">
     <input name="in" type="float" value="0" />
     <output name="out" type="material" />
   </nodedef>
-  <nodegraph name="NG_convert_float_material_1_0" nodedef="ND_convert_float_material_1_0">
+  <nodegraph name="NG_convert_float_material" nodedef="ND_convert_float_material">
     <convert name="float_to_color3" type="color3">
       <input name="in" type="float" interfacename="in" />
     </convert>
@@ -101,11 +101,11 @@
     <output name="out" type="material" nodename="surfacematerial" />
   </nodegraph>
 
-  <nodedef name="ND_convert_surfaceshader_material_1_0" node="convert" version="1.0" isdefaultversion="true" nodegroup="material" doc="Convert surfaceshader to material">
+  <nodedef name="ND_convert_surfaceshader_material" node="convert" version="1.0" isdefaultversion="true" nodegroup="material" doc="Convert surfaceshader to material">
     <input name="in" type="surfaceshader" value="" />
     <output name="out" type="material" />
   </nodedef>
-  <nodegraph name="NG_convert_surfaceshader_material_1_0" nodedef="ND_convert_surfaceshader_material_1_0">
+  <nodegraph name="NG_convert_surfaceshader_material" nodedef="ND_convert_surfaceshader_material">
     <surfacematerial name="surfacematerial" type="material">
       <input name="surfaceshader" type="surfaceshader" interfacename="in" />
       <input name="displacementshader" type="displacementshader" value="" />
@@ -113,11 +113,11 @@
     <output name="out" type="material" nodename="surfacematerial" />
   </nodegraph>
 
-  <nodedef name="ND_convert_vector2_material_1_0" node="convert" version="1.0" isdefaultversion="true" nodegroup="material" doc="Convert vector2 to material">
+  <nodedef name="ND_convert_vector2_material" node="convert" version="1.0" isdefaultversion="true" nodegroup="material" doc="Convert vector2 to material">
     <input name="in" type="vector2" value="0, 0" />
     <output name="out" type="material" />
   </nodedef>
-  <nodegraph name="NG_convert_vector2_material_1_0" nodedef="ND_convert_vector2_material_1_0">
+  <nodegraph name="NG_convert_vector2_material" nodedef="ND_convert_vector2_material">
     <surface_unlit name="surface_unlit" type="surfaceshader">
       <input name="emission_color" type="color3" nodename="vec3_to_color3" />
     </surface_unlit>
@@ -134,11 +134,11 @@
     <output name="out" type="material" nodename="surfacematerial" />
   </nodegraph>
 
-  <nodedef name="ND_convert_vector3_material_1_0" node="convert" version="1.0" isdefaultversion="true" nodegroup="material" doc="Convert vector2 to material">
+  <nodedef name="ND_convert_vector3_material" node="convert" version="1.0" isdefaultversion="true" nodegroup="material" doc="Convert vector2 to material">
     <input name="in" type="vector3" value="0, 0, 0" />
     <output name="out" type="material" />
   </nodedef>
-  <nodegraph name="NG_convert_vector3_material_1_0" nodedef="ND_convert_vector3_material_1_0">
+  <nodegraph name="NG_convert_vector3_material" nodedef="ND_convert_vector3_material">
     <surface_unlit name="surface_unlit" type="surfaceshader">
       <input name="emission_color" type="color3" nodename="vec3_to_color3" />
     </surface_unlit>
@@ -151,14 +151,12 @@
     </convert>
     <output name="out" type="material" nodename="surfacematerial" />
   </nodegraph>
-</materialx>
-<?xml version="1.0"?>
-<materialx version="1.38">
-  <nodedef name="ND_convert_vector4_material_1_0" node="convert" version="1.0" isdefaultversion="true" nodegroup="material" doc="COnvert vector4 to material">
+
+  <nodedef name="ND_convert_vector4_material" node="convert" version="1.0" isdefaultversion="true" nodegroup="material" doc="COnvert vector4 to material">
     <input name="in" type="vector4" value="0, 0, 0, 0" />
     <output name="out" type="material" />
   </nodedef>
-  <nodegraph name="NG_convert_vector4_material_1_0" nodedef="ND_convert_vector4_material_1_0">
+  <nodegraph name="NG_convert_vector4_material" nodedef="ND_convert_vector4_material">
     <surface_unlit name="surface_unlit" type="surfaceshader">
       <input name="emission_color" type="color3" nodename="color4_to_color3" />
       <input name="opacity" type="float" nodename="color4_to_float" />
@@ -180,22 +178,22 @@
     <output name="out" type="material" nodename="surfacematerial" />
   </nodegraph>
 
-  <nodedef name="ND_convert_volumshader_material_1_0" node="convert" version="1.0" isdefaultversion="true" nodegroup="material" doc="COnvert volumeshader to material">
+  <nodedef name="ND_convert_volumshader_material" node="convert" version="1.0" isdefaultversion="true" nodegroup="material" doc="COnvert volumeshader to material">
     <input name="in" type="volumeshader" value="" />
     <output name="out" type="material" />
   </nodedef>
-  <nodegraph name="NG_convert_volumshader_material_1_0" nodedef="ND_convert_volumshader_material_1_0">
+  <nodegraph name="NG_convert_volumshader_material" nodedef="ND_convert_volumshader_material">
     <volumematerial name="volumematerial" type="material">
       <input name="volumeshader" type="volumeshader" interfacename="in" />
     </volumematerial>
     <output name="out" type="material" nodename="volumematerial" />
   </nodegraph>
 
-  <nodedef name="ND_convert_integer_material_1_0" node="convert" version="1.0" isdefaultversion="true" nodegroup="material" doc="Convert integer to material">
+  <nodedef name="ND_convert_integer_material" node="convert" version="1.0" isdefaultversion="true" nodegroup="material" doc="Convert integer to material">
     <input name="in" type="integer" value="0" />
     <output name="out" type="material" />
   </nodedef>
-  <nodegraph name="NG_convert_integer_material_1_0" nodedef="ND_convert_integer_material_1_0">
+  <nodegraph name="NG_convert_integer_material" nodedef="ND_convert_integer_material">
     <convert name="int_to_float" type="float">
       <input name="in" type="integer" interfacename="in" />
     </convert>
@@ -212,11 +210,11 @@
     </surfacematerial>
   </nodegraph>
 
-  <nodedef name="ND_convert_boolean_material_1_0" node="convert" version="1.0" isdefaultversion="true" nodegroup="material" doc="Convert boolean to material">
+  <nodedef name="ND_convert_boolean_material" node="convert" version="1.0" isdefaultversion="true" nodegroup="material" doc="Convert boolean to material">
     <input name="in" type="boolean" value="false" />
     <output name="out" type="material" />
   </nodedef>
-  <nodegraph name="NG_convert_boolean_material_1_0" nodedef="ND_convert_boolean_material_1_0">
+  <nodegraph name="NG_convert_boolean_material" nodedef="ND_convert_boolean_material">
     <convert name="bool_to_float" type="float">
       <input name="in" type="boolean" interfacename="in" />
     </convert>
