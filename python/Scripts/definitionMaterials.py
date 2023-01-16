@@ -59,10 +59,6 @@ def createMaterials(doc, opts):
             if (not valueElem):
                 newElem = node.addInput(inputName, inputType)
                 newElem.copyContentFrom(input)
-                #if not newElem.getValue():
-                #    print('*** nodedef %s.%s missing value.' % (nodeName, inputName))
-                #    if  inputType == 'string':
-                #        newElem.setValueString("dummyString")
                 newElem.removeAttribute('doc')
 
         # Add outputs if none on node
