@@ -142,6 +142,7 @@ def createMaterials(doc, opts):
     # thin_film_bsdf code generation produces undefined variable names for OSL and GLSL
     ignoreNodeList = [ "thin_film_bsdf", "surfacematerial", "volumematerial", "arrayappend", "dot_filename" ]
     ignoreTypeList = [ "lightshader" ]
+    ignoreNodeDefList = [ "ND_convert_BSDF_material", "ND_convert_EDF_material" ]
 
     nodedefs = doc.getNodeDefs()
     nodedefCount = str(len(nodedefs))
@@ -149,6 +150,7 @@ def createMaterials(doc, opts):
         print('No definitions to create materials for')
 
     count = 0
+    ignoreList = []
     for nodedef in nodedefs:
 
         nodeinterface = nodedef.getImplementation(opts.target)
@@ -168,7 +170,13 @@ def createMaterials(doc, opts):
             if nodedef.getType() == i:
                 skip = True
                 continue
+        for i in ignoreNodeDefList:
+            if nodedef.getName() == i:
+                skip = True
+                continue
+
         if skip:
+            ignoreList.append( nodedef.getName() )
             continue
 
         outdoc = mx.createDocument()
@@ -176,12 +184,13 @@ def createMaterials(doc, opts):
         node = createMaterialFromNodedef(nodedef, doc, outdoc, opts.addExplicitOutputs)
 
         filename = opts.outputPath + '/' + node.getName() + ".mtlx"
-        print("Write defintion file: %s" % filename)
+        #print("Write defintion file: %s" % filename)
         mx.writeToXmlFile(outdoc, filename)
 
         count = count + 1
 
     print('Create materials for %d definitions' % count)
+    print('SKipped nodedefs: ', ignoreList)
 
 
 def main():
