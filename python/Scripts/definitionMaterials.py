@@ -9,12 +9,12 @@ import MaterialX as mx
 
 
 # Given a node, add downstream material attachments
-def addMaterialGraphs(node, doc, outdoc, nodedef, addExplictOutputs):
+def addMaterialGraphs(node, doc, outdoc, nodedef, addExplicitOutputs):
 
     # Use more cumbersome method of grabbing from nodedef if not using
     # explicit outputs on node
     outputs = []
-    if not addExplictOutputs:
+    if not addExplicitOutputs:
         outputs = nodedef.getActiveOutputs()
     else:
         outputs = node.getActiveOutputs()
@@ -81,11 +81,13 @@ def createNodeInstance(nodedef, nodeName, outdoc, setEmptyValues, addExplicitOut
 
                 # Set input values here as default definition does not define these
                 # values. This avoids error in node and code generation validation.
+                # Note: For geometry routing, this is using stream / primvar names
+                # generated for render tests internally (addAdditionalTestStreams())
                 if setEmptyValues:
                     if isGeomProp and inputName == 'geomprop':
-                        newElem.setValue('placeholder_geometry_' + inputType)
+                        newElem.setValue('geompropvalue_' + nodedef.getType())
                     elif isUsdPrimvarReader and inputName == 'varname':
-                        newElem.setValue('usd_placeholder_geometry_' + inputType)
+                        newElem.setValue('geompropvalue_' + nodedef.getType())
                     elif inputType == 'BSDF':
                         # Creat an arbitrary input node 
                         bsdfNodeName = outdoc.createValidChildName('oren_nayar_diffuse_bsdf')
@@ -96,8 +98,18 @@ def createNodeInstance(nodedef, nodeName, outdoc, setEmptyValues, addExplicitOut
                         edfNodeName = outdoc.createValidChildName('uniform_edf')
                         edfNode = outdoc.addNode('uniform_edf', edfNodeName, inputType)
                         newElem.setNodeName(edfNode.getName())
+                    elif inputType == 'surfaceshader':
+                        ssNodeName = outdoc.createValidChildName('standard_surface')
+                        ssNode = outdoc.addNode('standard_surface', ssNodeName, inputType)
+                        newElem.setNodeName(ssNode.getName())
+                        
 
-            for attr in [ 'doc', 'uimin', 'uimax', 'uifolder', 'uisoftmin', 'uisfotmax', 'uiadvanced' ]:
+                    #elif inputType == 'displacementshader':
+                    #elif inputType == 'volumeshader':
+
+
+
+            for attr in [ 'doc', 'uimin', 'uimax', 'uifolder', 'uisoftmin', 'uisoftmax', 'uiadvanced' ]:
                 newElem.removeAttribute(attr)
 
     if addExplicitOutputs:
