@@ -63,7 +63,11 @@ TEST_CASE("GenReference: OSL Reference", "[genreference]")
     // Ignore the following nodes:
     const mx::StringSet ignoreNodeList = { "surfacematerial", "volumematerial",
                                            "constant_filename", "arrayappend",
-                                           "dot_filename"};
+                                           "dot_filename", 
+                                           // Ignore pbr library convertors as they are not included (surface)
+                                           // or not implemented (volumematerial)
+                                           "convert_EDF_material", "convert_BSDF_material", 
+                                           "convert_volumshader_material" };
 
     bool failedGeneration = false;
     for (const mx::NodeDefPtr& nodedef : stdlib->getNodeDefs())
