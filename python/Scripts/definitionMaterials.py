@@ -9,18 +9,23 @@ import MaterialX as mx
 
 
 # Given a node, add downstream material attachments
-def addMaterialGraphs(node, doc, outdoc):
+def addMaterialGraphs(node, doc, outdoc, nodedef, addExplictOutputs):
 
-    # Add outputs if none on node
-    outputs = node.getActiveOutputs()
+    # Use more cumbersome method of grabbing from nodedef if not using
+    # explicit outputs on node
+    outputs = []
+    if not addExplictOutputs:
+        outputs = nodedef.getActiveOutputs()
+    else:
+        outputs = node.getActiveOutputs()
     isMultiOutput = len(outputs) > 1
 
     for output in outputs:
         outputName = output.getName()
         outputType = output.getType()
-        outputElem = node.getOutput(outputName)
-        if (not outputElem):
-            outputElem = node.addOutput(outputName, outputType)
+        #outputElem = node.getOutput(outputName)
+        #if (not outputElem):
+        #    outputElem = node.addOutput(outputName, outputType)
 
         shaderNodeName = outdoc.createValidChildName('shader_' + node.getName() + '_' + outputName)                
         materialNodeName = outdoc.createValidChildName('material_' + node.getName() + '_' + outputName)                
@@ -54,9 +59,16 @@ def addMaterialGraphs(node, doc, outdoc):
                     newInput.setAttribute('output', outputName)    
 
 # Create a node instance given a node definition with appropriate inputs and outputs
-def createNodeInstance(nodedef, nodeName, outdoc):
+def createNodeInstance(nodedef, nodeName, outdoc, setEmptyValues, addExplicitOutputs):
     node = outdoc.addNodeInstance(nodedef, nodeName)
     node.removeAttribute('nodedef')
+    version = nodedef.getVersionString()
+    if len(version) > 0:
+        node.setVersionString(version)
+
+    nodeType = nodedef.getNodeString()
+    isGeomProp = nodeType == 'geompropvalue' 
+    isUsdPrimvarReader = nodeType == 'UsdPrimvarReader'
 
     for input in nodedef.getActiveInputs():
         inputName = input.getName()
@@ -65,28 +77,50 @@ def createNodeInstance(nodedef, nodeName, outdoc):
         if (not valueElem):
             newElem = node.addInput(inputName, inputType)
             newElem.copyContentFrom(input)
+            if not newElem.getValue():
+
+                # Set input values here as default definition does not define these
+                # values. This avoids error in node and code generation validation.
+                if setEmptyValues:
+                    if isGeomProp and inputName == 'geomprop':
+                        newElem.setValue('placeholder_geometry_' + inputType)
+                    elif isUsdPrimvarReader and inputName == 'varname':
+                        newElem.setValue('usd_placeholder_geometry_' + inputType)
+                    elif inputType == 'BSDF':
+                        # Creat an arbitrary input node 
+                        bsdfNodeName = outdoc.createValidChildName('oren_nayar_diffuse_bsdf')
+                        bsdfNode = outdoc.addNode('oren_nayar_diffuse_bsdf', bsdfNodeName, inputType)
+                        newElem.setNodeName(bsdfNode.getName())
+                    elif inputType == "EDF":
+                        # Create an input uniform node
+                        edfNodeName = outdoc.createValidChildName('uniform_edf')
+                        edfNode = outdoc.addNode('uniform_edf', edfNodeName, inputType)
+                        newElem.setNodeName(edfNode.getName())
+
             for attr in [ 'doc', 'uimin', 'uimax', 'uifolder', 'uisoftmin', 'uisfotmax', 'uiadvanced' ]:
                 newElem.removeAttribute(attr)
 
-    for output in nodedef.getActiveOutputs():
-        outputName = output.getName()
-        outputType = output.getType()
-        outputElem = node.getOutput(outputName)
-        if (not outputElem):
-            outputElem = node.addOutput(outputName, outputType)
+    if addExplicitOutputs:
+        print('add explicit outputs ?', addExplicitOutputs)
+        for output in nodedef.getActiveOutputs():
+            outputName = output.getName()
+            outputType = output.getType()
+            outputElem = node.getOutput(outputName)
+            if (not outputElem):
+                outputElem = node.addOutput(outputName, outputType)
     
     return node
 
 # Given a node definition create a material node graph in a new document
-def createMaterialFromNodedef(nodedef, doc, outdoc):
+def createMaterialFromNodedef(nodedef, doc, outdoc, addExplicitOutputs):
 
     nodeName = nodedef.getName()
     functionName = nodeName.removeprefix('ND_')
     functionName = outdoc.createValidChildName(functionName)
 
-    node = createNodeInstance(nodedef, functionName, outdoc)
+    node = createNodeInstance(nodedef, functionName, outdoc, True, addExplicitOutputs)
 
-    addMaterialGraphs(node, doc, outdoc)
+    addMaterialGraphs(node, doc, outdoc, nodedef, addExplicitOutputs)
 
     return node
 
@@ -127,7 +161,7 @@ def createMaterials(doc, opts):
 
         outdoc = mx.createDocument()
 
-        node = createMaterialFromNodedef(nodedef, doc, outdoc)
+        node = createMaterialFromNodedef(nodedef, doc, outdoc, opts.addExplicitOutputs)
 
         filename = opts.outputPath + '/' + node.getName() + ".mtlx"
         print("Write defintion file: %s" % filename)
@@ -139,11 +173,12 @@ def createMaterials(doc, opts):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Create a Materialx document with an instance per nodedef which is sampled by a downstream material node.")
+    parser = argparse.ArgumentParser(description="Create a Materialx document for each output on an instance per nodedef. This instance is sampled by a downstream material node.")
     parser.add_argument(dest="libraryPath", help="Path for MaterialX libraries.")
     parser.add_argument('--libName', dest='libName', help='Name of library to generate for. Does a match against the filename')
     parser.add_argument('--outputPath', dest='outputPath', help='File path to output material files to.')
     parser.add_argument('--target', dest='target', default='genglsl', help='Shading language target. Default is genglsl')
+    parser.add_argument('--addExplicitOutputs', dest='addExplicitOutputs', default=False, type=bool, help='Add explicit outputs to node instances created from nodedefs')
 
     opts = parser.parse_args()
 

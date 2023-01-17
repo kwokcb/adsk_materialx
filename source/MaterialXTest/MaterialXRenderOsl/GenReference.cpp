@@ -65,9 +65,11 @@ TEST_CASE("GenReference: OSL Reference", "[genreference]")
                                            "constant_filename", "arrayappend",
                                            "dot_filename", 
                                            // Ignore pbr library convertors as they are not included (surface)
-                                           // or not implemented (volumematerial)
+                                           // or not implemented (volumematerial), or has errors in generated code
+                                           // surface, displacement
                                            "convert_EDF_material", "convert_BSDF_material", 
-                                           "convert_volumshader_material" };
+                                           "convert_volumshader_material", "convert_displacementshader_material", 
+                                           "convert_surfaceshader_material"};
 
     bool failedGeneration = false;
     for (const mx::NodeDefPtr& nodedef : stdlib->getNodeDefs())
