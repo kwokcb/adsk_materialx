@@ -23,9 +23,6 @@ def addMaterialGraphs(node, doc, outdoc, nodedef, addExplicitOutputs):
     for output in outputs:
         outputName = output.getName()
         outputType = output.getType()
-        #outputElem = node.getOutput(outputName)
-        #if (not outputElem):
-        #    outputElem = node.addOutput(outputName, outputType)
 
         shaderNodeName = outdoc.createValidChildName('shader_' + node.getName() + '_' + outputName)                
         materialNodeName = outdoc.createValidChildName('material_' + node.getName() + '_' + outputName)                
