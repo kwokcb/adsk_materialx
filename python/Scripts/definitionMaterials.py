@@ -102,12 +102,10 @@ def createNodeInstance(nodedef, nodeName, outdoc, setEmptyValues, addExplicitOut
                         ssNodeName = outdoc.createValidChildName('standard_surface')
                         ssNode = outdoc.addNode('standard_surface', ssNodeName, inputType)
                         newElem.setNodeName(ssNode.getName())
-                        
-
+                    # There are no "existing" core definitions for either of these so nothing
+                    # added here for now.    
                     #elif inputType == 'displacementshader':
                     #elif inputType == 'volumeshader':
-
-
 
             for attr in [ 'doc', 'uimin', 'uimax', 'uifolder', 'uisoftmin', 'uisoftmax', 'uiadvanced' ]:
                 newElem.removeAttribute(attr)
