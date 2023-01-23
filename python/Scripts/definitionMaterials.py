@@ -27,7 +27,8 @@ def addMaterialGraphs(node, doc, outdoc, nodedef, addExplicitOutputs):
         shaderNodeName = outdoc.createValidChildName('shader_' + node.getName() + '_' + outputName)                
         materialNodeName = outdoc.createValidChildName('material_' + node.getName() + '_' + outputName)                
 
-        # EDF and BSDF can feed into surface shader
+        # EDF and BSDF can feed into surface shader. Note that shadergen fails
+        # currently when these are inside a nodedef.
         if outputType in { 'EDF', 'BSDF' }:
             shaderNode = outdoc.addNode("surface", shaderNodeName, "surfaceshader")
             newInput = shaderNode.addInput(outputType.lower(), outputType)
@@ -43,17 +44,19 @@ def addMaterialGraphs(node, doc, outdoc, nodedef, addExplicitOutputs):
         # Other numeric and boolean can feed into utility "convert" nodes 
         elif outputType in { 'float', 'vector2', 'vector3', 'vector4', 'integer', 'boolean', 'color3', 'color4' }:
 
-            convertDefinition = 'ND_convert_' + outputType + '_material'
+            convertDefinition = 'ND_convert_' + outputType + '_shader'
             convertNode = doc.getNodeDef(convertDefinition)
             if not convertNode:
                 print("> Failed to find conversion definition: %s" % convertDefinition)
             else:
-                materialNode = outdoc.addNodeInstance(convertNode, materialNodeName)
-                materialNode.removeAttribute('nodedef')
-                newInput = materialNode.addInput('in', outputType)
+                shaderNode = outdoc.addNodeInstance(convertNode, shaderNodeName)
+                shaderNode.removeAttribute('nodedef')
+                newInput = shaderNode.addInput('in', outputType)
                 newInput.setNodeName(node.getName())                        
                 if isMultiOutput:
                     newInput.setAttribute('output', outputName)    
+                materialNode = outdoc.addMaterialNode(materialNodeName, shaderNode)
+
 
 # Create a node instance given a node definition with appropriate inputs and outputs
 def createNodeInstance(nodedef, nodeName, outdoc, setEmptyValues, addExplicitOutputs):
@@ -179,13 +182,13 @@ def createMaterials(doc, opts):
         node = createMaterialFromNodedef(nodedef, doc, outdoc, opts.addExplicitOutputs)
 
         filename = opts.outputPath + '/' + node.getName() + ".mtlx"
-        #print("Write defintion file: %s" % filename)
+        print("Write defintion file: %s" % filename)
         mx.writeToXmlFile(outdoc, filename)
 
         count = count + 1
 
     print('Create materials for %d definitions' % count)
-    print('SKipped nodedefs: ', ignoreList)
+    print('Skipped nodedefs: ', ignoreList)
 
 
 def main():

@@ -72,7 +72,7 @@ vector<NodePtr> getShaderNodes(NodePtr materialNode, const string& nodeType, con
         }
     }
 
-    if (shaderNodeVec.empty())
+    if (inputs.empty())
     {
         // Try to find material nodes in the implementation graph if any.
         // If a target is specified the nodedef for the given target is searched for.
