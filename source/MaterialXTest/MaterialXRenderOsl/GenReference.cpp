@@ -63,8 +63,7 @@ TEST_CASE("GenReference: OSL Reference", "[genreference]")
     // Ignore the following nodes:
     const mx::StringSet ignoreNodeList = { "surfacematerial", "volumematerial",
                                            "constant_filename", "arrayappend",
-                                           "dot_filename",
-                                           "convert_EDF_shader", "convert_BSDF_shader" };
+                                           "dot_filename" };
     bool failedGeneration = false;
     for (const mx::NodeDefPtr& nodedef : stdlib->getNodeDefs())
     {
