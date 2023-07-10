@@ -422,7 +422,7 @@ void MermaidGraphIo::emitConnection(const string& outputName,
         if (!outputLabel.empty() && !outputName.empty())
         {
             result = " --> " + outputName + "([" + outputLabel + "])\n";
-            result += GRAPH_INDENT + "style " + outputName + " fill:#1b1, color:#111\n";
+            result += GRAPH_INDENT + "style " + outputName + " fill:#0C0, color:#111\n";
             result += GRAPH_INDENT + outputName + " --" + fullLabel + "--> ";
         }
         else
@@ -446,6 +446,7 @@ void MermaidGraphIo::emitDownstreamNode(const NodeIO& node, const string& /*inpu
         if (node.group == NodeDef::CONDITIONAL_NODE_GROUP)
         {
             result = node.identifier + "{" + node.uilabel + "}" + "\n";
+            result += GRAPH_INDENT + "style " + node.identifier + " fill:#F80, color:#111\n";
         }
         else
         {
@@ -455,7 +456,7 @@ void MermaidGraphIo::emitDownstreamNode(const NodeIO& node, const string& /*inpu
     else
     {
         result = node.identifier + "([" + node.uilabel + "])" + "\n";
-        result += GRAPH_INDENT + "style " + node.identifier + " fill:#1b1, color:#111\n";
+        result += GRAPH_INDENT + "style " + node.identifier + " fill:#0C0, color:#111\n";
     }
     _graphResult += result;
 }
@@ -469,7 +470,7 @@ void MermaidGraphIo::emitInterfaceConnection(const string& interfaceId,
     result = GRAPH_INDENT + interfaceId + "([" + interfaceInputName + "])";
     result += " ==." + inputName;
     result += "==> " + interiorNode.identifier + "[" + interiorNode.uilabel + "]" + "\n";
-    result += GRAPH_INDENT + "style " + interfaceId + " fill:#0bb, color:#111\n";
+    result += GRAPH_INDENT + "style " + interfaceId + " fill:#0CF, color:#111\n";
 
     _graphResult += result;
 }
