@@ -171,46 +171,23 @@ void Document::initialize()
 }
 
 NodeDefPtr Document::addNodeDefFromGraph(const NodeGraphPtr nodeGraph, const string& nodeDefName, const string& node,
-    const string& version, bool isDefaultVersion, const string& group, const string& newGraphName)
+                                         const string& version, bool isDefaultVersion, const string& group, const string& newGraphName,
+                                         const string& docString, const string& nameSpace)
 {
-    NodeDefCreateOptions options;
-    options.categoryString = node;
-    options.compoundGraph = nodeGraph;
-    options.docString = EMPTY_STRING;
-    options.isDefaultVersion = isDefaultVersion;
-    options.namespaceString = EMPTY_STRING;
-    options.nodeGroupString = group;
-    options.useNamespace = false;
-    options.useVersion = !version.empty();
-    options.versionString = version;
-
-    options.newNodeDefName = nodeDefName;
-    options.newNodeGraphName = newGraphName;
-
-    return addNodeDefFromGraph(options);
-}
-
-NodeDefPtr Document::addNodeDefFromGraph(NodeDefCreateOptions& options)
-{
-    if (!options.compoundGraph)
+    if (getNodeDef(nodeDefName))
     {
-        throw Exception("No compound node graph provided to create definition from.");
-    }
-        
-    if (getNodeDef(options.newNodeDefName))
-    {
-        throw Exception("Cannot create duplicate nodedef: " + options.newNodeDefName);
+        throw Exception("Cannot create duplicate nodedef: " + nodeDefName);
     }
 
-    NodeGraphPtr graph = nullptr;
-    if (!options.newNodeGraphName.empty())
+    NodeGraphPtr graph = nodeGraph;
+    if (!newGraphName.empty())
     {
-        if (getNodeGraph(options.newNodeGraphName))
+        if (getNodeGraph(newGraphName))
         {
-            throw Exception("Cannot create duplicate nodegraph: " + options.newNodeGraphName);
+            throw Exception("Cannot create duplicate nodegraph: " + newGraphName);
         }
-        graph = addNodeGraph(options.newNodeGraphName);
-        graph->copyContentFrom(options.compoundGraph);
+        graph = addNodeGraph(newGraphName);
+        graph->copyContentFrom(nodeGraph);
 
         for (auto graphChild : graph->getChildren())
         {
@@ -218,35 +195,34 @@ NodeDefPtr Document::addNodeDefFromGraph(NodeDefCreateOptions& options)
             graphChild->removeAttribute("ypos");
         }        
     }
-    graph->setNodeDefString(options.newNodeDefName);
+    graph->setNodeDefString(nodeDefName);
 
-    NodeDefPtr nodeDef = addChild<NodeDef>(options.newNodeDefName);    
-    nodeDef->setNodeString(options.categoryString);
-    if (!options.docString.empty())
+    NodeDefPtr nodeDef = addChild<NodeDef>(nodeDefName);    
+    nodeDef->setNodeString(node);
+    if (!docString.empty())
     {
-        nodeDef->setDocString(options.docString);
+        nodeDef->setDocString(docString);
     }
-    if (!options.nodeGroupString.empty())
+    if (!group.empty())
     {
-        nodeDef->setNodeGroup(options.nodeGroupString);
+        nodeDef->setNodeGroup(group);
     }
 
-    if (!options.versionString.empty())
+    if (!version.empty())
     {
-        nodeDef->setVersionString(options.versionString);
+        nodeDef->setVersionString(version);
 
         // Can only be a default version if there is a version string
-        if (options.isDefaultVersion)
+        if (isDefaultVersion)
         {
             nodeDef->setDefaultVersion(true);
         }
     }
 
-    // Set namespace if specified
-    if (!options.namespaceString.empty())
+    if (!nameSpace.empty())
     {
-        graph->setNamespace(options.namespaceString);
-        nodeDef->setNamespace(options.namespaceString);
+        graph->setNamespace(nameSpace);
+        nodeDef->setNamespace(nameSpace);
     }
 
     // Expose any existing interface.

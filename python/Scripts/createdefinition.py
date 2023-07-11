@@ -38,7 +38,6 @@ def main():
 
     version_major, version_minor, version_patch = mx.getVersionIntegers()
     use_1_38_8 = False
-    print(version_major, version_minor, version_patch)
     if version_major >=1 and version_minor >= 38 and version_patch >= 8:
         use_1_38_8 = True
 
@@ -102,14 +101,15 @@ def main():
 
         # Create the definition
         definition = None
-        if use_1_38_8:
-            definition = doc.addNodeDefFromGraph(nodeGraph, nodedefName,
-                            category, opts.version, defaultversion, nodegroup, nodegraphName,
-                            documentation, namespace)
-        else:
-            definition = doc.addNodeDefFromGraph(nodeGraph, nodedefName,
-                            category, opts.version, defaultversion, nodegroup, nodegraphName)
+        definition = doc.addNodeDefFromGraph(nodeGraph, nodedefName,
+                        category, opts.version, defaultversion, nodegroup, nodegraphName)
+        if definition and documentation:
+            definition.setDocString(documentation) 
+            if namespace:
+                definition.setNamespace(namespace)
         funcgraph = doc.getNodeGraph(nodegraphName)
+        if funcgraph and namespace:
+                funcgraph.setNamespace(namespace)
 
         if not definition or not funcgraph:
             print('Failed to create definition for nodegraph %s' % nodeGraph.getNamePath())

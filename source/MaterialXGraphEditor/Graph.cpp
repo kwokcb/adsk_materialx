@@ -296,21 +296,9 @@ void Graph::createDefinitionFromNodeGraph(const mx::FilePath& fileName, NodeDefP
                 std::string errorString;
                 try
                 {
-                    mx::NodeDefCreateOptions options;
-                    options.categoryString = newNodeCategory;
-                    options.compoundGraph = nodeGraph;
-                    options.docString = newNodeDocString;
-                    options.isDefaultVersion = isDefaultVersion;
-                    options.namespaceString = newNodeNamespace;
-                    options.nodeGroupString = newNodeGroup;
-                    options.useNamespace = false;
-                    options.useVersion = true;
-                    options.versionString = newVersionString;
-
-                    options.newNodeDefName = newNodeDefName;
-                    options.newNodeGraphName = newNodeGraphName;
-
-                    tempDef = doc->addNodeDefFromGraph(options);
+                    tempDef = doc->addNodeDefFromGraph(nodeGraph, newNodeDefName,
+                        newNodeCategory, newVersionString, isDefaultVersion, newNodeGroup, newNodeGraphName,
+                        newNodeDocString, newNodeNamespace);
                     tempGraph = doc->getNodeGraph(newNodeGraphName);
 
                     if (!tempDef || !tempGraph || !tempDef->validate() || !tempGraph->validate())
