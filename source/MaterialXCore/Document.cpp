@@ -173,7 +173,7 @@ void Document::initialize()
 NodeDefPtr Document::addNodeDefFromGraph(const NodeGraphPtr nodeGraph, const string& nodeDefName, const string& node,
     const string& version, bool isDefaultVersion, const string& group, const string& newGraphName)
 {
-    DefinitionOptions options;
+    NodeDefCreateOptions options;
     options.categoryString = node;
     options.compoundGraph = nodeGraph;
     options.docString = EMPTY_STRING;
@@ -187,10 +187,10 @@ NodeDefPtr Document::addNodeDefFromGraph(const NodeGraphPtr nodeGraph, const str
     options.newNodeDefName = nodeDefName;
     options.newNodeGraphName = newGraphName;
 
-    return createDefinition(options);
+    return addNodeDefFromGraph(options);
 }
 
-NodeDefPtr Document::createDefinition(DefinitionOptions& options)
+NodeDefPtr Document::addNodeDefFromGraph(NodeDefCreateOptions& options)
 {
     if (!options.compoundGraph)
     {

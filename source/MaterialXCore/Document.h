@@ -23,14 +23,14 @@ using DocumentPtr = shared_ptr<Document>;
 /// A shared pointer to a const Document
 using ConstDocumentPtr = shared_ptr<const Document>;
 
-/// @class DefinitionOptions
-/// A set of options for the creation of a definition and corresponding functional nodegraph 
+/// @class NodeDefCreationOptions
+/// A set of options for the creation of a nodedef and correspdongin functional nodegraph 
 /// from a compound nodegraph.
-class MX_CORE_API DefinitionOptions
+class MX_CORE_API NodeDefCreateOptions
 {
   public:
-    DefinitionOptions() {};
-    ~DefinitionOptions() {};
+    NodeDefCreateOptions() = default;
+    ~NodeDefCreateOptions() {};
 
     /// Utility to generate a nodedef identifier based on a compound nodegraph and the current set of options
     /// The format of the idenfiier is as follows:
@@ -432,7 +432,7 @@ class MX_CORE_API Document : public GraphElement
 
     /// Create a node definition which is based on a compound node graph and a set of creation options (NodeDefCreatOptions).
     /// @return New definition if successful.
-    NodeDefPtr createDefinition(DefinitionOptions& options);
+    NodeDefPtr addNodeDefFromGraph(NodeDefCreateOptions& options);
 
     /// Return the NodeDef, if any, with the given name.
     NodeDefPtr getNodeDef(const string& name) const
