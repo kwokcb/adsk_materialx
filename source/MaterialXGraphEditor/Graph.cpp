@@ -158,6 +158,7 @@ mx::DocumentPtr Graph::loadDocument(mx::FilePath filename)
             try
             {
                 readFromXmlFile(doc, resolvedFilename, searchPath, options);
+                readFromJSONFile(doc, resolvedFilename);
             }
             catch (mx::Exception& e)
             {
@@ -176,7 +177,14 @@ mx::DocumentPtr Graph::loadDocument(mx::FilePath filename)
     {
         if (!filename.isEmpty())
         {
-            mx::readFromXmlFile(doc, filename, _searchPath, &readOptions);
+            if (filename.getExtension() == "json")
+            {
+                mx::readFromJSONFile(doc, filename, _searchPath);
+            }
+            else
+            {
+                mx::readFromXmlFile(doc, filename, _searchPath, &readOptions);
+            }
             doc->importLibrary(_stdLib);
             std::string message;
             if (!doc->validate(&message))
