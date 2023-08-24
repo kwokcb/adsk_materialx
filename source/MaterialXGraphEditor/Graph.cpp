@@ -7,7 +7,7 @@
 
 #include <MaterialXRenderGlsl/External/Glad/glad.h>
 #include <MaterialXFormat/Util.h>
-#include <MaterialXFormat/JSONio.h>
+#include <MaterialXFormat/JSONIo.h>
 
 #include <imgui_stdlib.h>
 #include <imgui_node_editor_internal.h>

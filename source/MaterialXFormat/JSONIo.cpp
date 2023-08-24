@@ -72,35 +72,35 @@ namespace
         }
 
         StringSet layoutAttribues = { "xpos", "ypos" };
-    for (const string& attrName : elem->getAttributeNames())
-    {
-        if (!storeLayoutInformation && layoutAttribues.count(attrName))
-            continue;
-
-        jsonElem["@" + attrName] = elem->getAttribute(attrName);
-    }
-
-    // Create child nodes and recurse.
-    bool isGraph = elem->isA<NodeGraph>();
-    bool skipGraphChildren = (!addNodeGraphChildren && isGraph);
-
-    for (auto child : elem->getChildren())
-    {
-        if (skipGraphChildren && child->isA<Node>())
+        for (const string& attrName : elem->getAttributeNames())
         {
-            continue;
-        }
-        if (elementPredicate && !elementPredicate(child))
-        {
-            continue;
+            if (!storeLayoutInformation && layoutAttribues.count(attrName))
+                continue;
+
+            jsonElem["@" + attrName] = elem->getAttribute(attrName);
         }
 
-        elementToJSON(child, jsonElem, writeOptions);
-    }
+        // Create child nodes and recurse.
+        bool isGraph = elem->isA<NodeGraph>();
+        bool skipGraphChildren = (!addNodeGraphChildren && isGraph);
 
-    // Add new element to parent
-    jsonObject[elem->getName()] = jsonElem;
-}
+        for (auto child : elem->getChildren())
+        {
+            if (skipGraphChildren && child->isA<Node>())
+            {
+                continue;
+            }
+            if (elementPredicate && !elementPredicate(child))
+            {
+                continue;
+            }
+
+            elementToJSON(child, jsonElem, writeOptions);
+        }
+
+        // Add new element to parent
+        jsonObject[elem->getName()] = jsonElem;
+    }
 }
 
 //
@@ -124,7 +124,7 @@ void writeToJSONStream(DocumentPtr doc, std::ostream& stream, const JSONWriteOpt
     }
 
     materialXRoot["materialx"] = documentRoot;
-    
+
     // Set to stream to dump of JSON object.
     const string jsonString = materialXRoot.dump(writeOptions ? writeOptions->indent : 4);
     stream << jsonString << std::endl;
