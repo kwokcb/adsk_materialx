@@ -28,12 +28,14 @@ namespace
         ElementPredicate elementPredicate = nullptr;
         bool addDefinitionInformation = true;
         bool storeLayoutInformation = true;
+        bool addNodeGraphChildren = true;
 
         if (writeOptions)
         {
             elementPredicate = writeOptions->elementPredicate;
             addDefinitionInformation = writeOptions->addDefinitionInformation;
             storeLayoutInformation = writeOptions->storeLayoutInformation;
+            addNodeGraphChildren = writeOptions->addNodeGraphChildren;
         }
 
         if (elementPredicate && !elementPredicate(elem))
@@ -79,9 +81,15 @@ namespace
     }
 
     // Create child nodes and recurse.
-    StringSet writtenSourceFiles;
+    bool isGraph = elem->isA<NodeGraph>();
+    bool skipGraphChildren = (!addNodeGraphChildren && isGraph);
+
     for (auto child : elem->getChildren())
     {
+        if (skipGraphChildren && child->isA<Node>())
+        {
+            continue;
+        }
         if (elementPredicate && !elementPredicate(child))
         {
             continue;

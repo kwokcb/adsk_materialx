@@ -38,6 +38,9 @@ public:
 
     /// Store node layout information
     bool storeLayoutInformation = true;
+
+    /// Add nodegraph children
+    bool addNodeGraphChildren = true;
 };
 
 /// @name Write Functions
