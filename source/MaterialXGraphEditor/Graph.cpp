@@ -7,6 +7,7 @@
 
 #include <MaterialXRenderGlsl/External/Glad/glad.h>
 #include <MaterialXFormat/Util.h>
+#include <MaterialXFormat/JSONio.h>
 
 #include <imgui_stdlib.h>
 #include <imgui_node_editor_internal.h>
@@ -4198,4 +4199,10 @@ void Graph::writeText(std::string fileName, mx::FilePath filePath)
     mx::XmlWriteOptions writeOptions;
     writeOptions.elementPredicate = getElementPredicate();
     mx::writeToXmlFile(_graphDoc, filePath, &writeOptions);
+
+    mx::JSONWriteOptions jsonWriteOptions;
+    jsonWriteOptions.elementPredicate = getElementPredicate();
+    jsonWriteOptions.storeLayoutInformation = false;
+    mx::writeToJSONFile(_graphDoc, filePath.asString() + ".json", &jsonWriteOptions);
+
 }

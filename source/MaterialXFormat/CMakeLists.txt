@@ -33,6 +33,7 @@ target_link_libraries(
 target_include_directories(${MATERIALX_MODULE_NAME}
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/External>
         $<INSTALL_INTERFACE:${MATERIALX_INSTALL_INCLUDE_PATH}>
     PRIVATE
         ${EXTERNAL_INCLUDE_DIRS})
