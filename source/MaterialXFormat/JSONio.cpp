@@ -47,11 +47,11 @@ namespace
         json jsonElem;
         if (!elem->getName().empty())
         {
-            jsonElem[Element::NAME_ATTRIBUTE] = elem->getName();
+            jsonElem["@" + Element::NAME_ATTRIBUTE] = elem->getName();
         }
         if (!elem->getCategory().empty())
         {
-            jsonElem["category"] = elem->getCategory();
+            jsonElem["@category"] = elem->getCategory();
         }
 
         // Add in definition information if it is a node   
@@ -63,10 +63,10 @@ namespace
                 ConstNodeDefPtr nodeDef = node->getNodeDef();
                 if (nodeDef)
                 {
-                    jsonElem["nodedef"] = nodeDef->getName();
+                    jsonElem["@nodedef"] = nodeDef->getName();
                     const string& version = nodeDef->getVersionString();
                     if (!version.empty())
-                        jsonElem["version"] = nodeDef->getVersionString();
+                        jsonElem["@version"] = nodeDef->getVersionString();
                 }
             }
         }
@@ -77,7 +77,7 @@ namespace
         if (!storeLayoutInformation && layoutAttribues.count(attrName))
             continue;
 
-        jsonElem[attrName] = elem->getAttribute(attrName);
+        jsonElem["@" + attrName] = elem->getAttribute(attrName);
     }
 
     // Create child nodes and recurse.
@@ -114,7 +114,7 @@ void writeToJSONStream(DocumentPtr doc, std::ostream& stream, const JSONWriteOpt
 
     for (const string& attrName : doc->getAttributeNames())
     {
-        materialXRoot[attrName] = doc->getAttribute(attrName);
+        documentRoot["@" + attrName] = doc->getAttribute(attrName);
     }
 
     // Children are in an array
@@ -123,10 +123,10 @@ void writeToJSONStream(DocumentPtr doc, std::ostream& stream, const JSONWriteOpt
         elementToJSON(elem, documentRoot, writeOptions);
     }
 
-    materialXRoot["materialx"]["document"] = documentRoot;
+    materialXRoot["materialx"] = documentRoot;
     
     // Set to stream to dump of JSON object.
-    const string jsonString = materialXRoot.dump(2);
+    const string jsonString = materialXRoot.dump(writeOptions ? writeOptions->indent : 4);
     stream << jsonString << std::endl;
 }
 

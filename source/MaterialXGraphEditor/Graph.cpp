@@ -4204,6 +4204,7 @@ void Graph::writeText(std::string fileName, mx::FilePath filePath)
     jsonWriteOptions.elementPredicate = getElementPredicate();
     jsonWriteOptions.storeLayoutInformation = false;
     jsonWriteOptions.addNodeGraphChildren = false;
+    mx::writeToJSONFile(_graphDoc, filePath.asString() + "_nograph.json", &jsonWriteOptions);
+    jsonWriteOptions.addNodeGraphChildren = true;
     mx::writeToJSONFile(_graphDoc, filePath.asString() + ".json", &jsonWriteOptions);
-
 }

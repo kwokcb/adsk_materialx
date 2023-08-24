@@ -41,6 +41,9 @@ public:
 
     /// Add nodegraph children
     bool addNodeGraphChildren = true;
+
+    /// Indentation. 4 by default
+    unsigned int indent = 4;
 };
 
 /// @name Write Functions
