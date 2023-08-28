@@ -18,11 +18,16 @@
 MATERIALX_NAMESPACE_BEGIN
 
 const string JSON_EXTENSION = "json";
-const string JSON_MIME_TYPE = "application/mtlx+json";
+
 using json = nlohmann::json;
 
 namespace
 {
+    const string JSON_MIME_TYPE = "application/mtlx+json";
+    const StringSet JSON_NON_ELEMENTS = { "materialx", "mimetype" };
+    const string JSON_CATEGORY_NAME_SEPARATOR = ":";
+    const StringSet LAYOUT_ATTRIBUES = { "xpos", "ypos" };
+
     // Writing utility
     void elementToJSON(ConstElementPtr elem, json& jsonObject, const JSONWriteOptions* writeOptions)
     {
@@ -46,14 +51,17 @@ namespace
 
         // Store attributes in JSON.
         json jsonElem;
-        if (!elem->getName().empty())
-        {
-            jsonElem["@" + Element::NAME_ATTRIBUTE] = elem->getName();
-        }
-        if (!elem->getCategory().empty())
-        {
-            jsonElem["@category"] = elem->getCategory();
-        }
+        // These are set as the object key: <category>:<name>
+        // Instead of embedding them here.
+        //
+        //if (!elem->getName().empty())
+        //{
+        //    jsonElem[Element::NAME_ATTRIBUTE] = elem->getName();
+        //}
+        //if (!elem->getCategory().empty())
+        //{
+        //    jsonElem["category"] = elem->getCategory();
+        //}
 
         // Add in definition information if it is a node   
         if (addDefinitionInformation)
@@ -64,28 +72,27 @@ namespace
                 ConstNodeDefPtr nodeDef = node->getNodeDef();
                 if (nodeDef)
                 {
-                    jsonElem["@nodedef"] = nodeDef->getName();
+                    jsonElem[InterfaceElement::NODE_DEF_ATTRIBUTE] = nodeDef->getName();
                     const string& version = nodeDef->getVersionString();
                     if (!version.empty())
-                        jsonElem["@version"] = nodeDef->getVersionString();
+                        jsonElem[InterfaceElement::VERSION_ATTRIBUTE] = nodeDef->getVersionString();
                 }
             }
         }
 
-        StringSet layoutAttribues = { "xpos", "ypos" };
         for (const string& attrName : elem->getAttributeNames())
         {
-            if (!storeLayoutInformation && layoutAttribues.count(attrName))
+            if (!storeLayoutInformation && LAYOUT_ATTRIBUES.count(attrName))
                 continue;
 
-            jsonElem["@" + attrName] = elem->getAttribute(attrName);
+            jsonElem[attrName] = elem->getAttribute(attrName);
         }
 
         // Create child nodes and recurse.
         bool isGraph = elem->isA<NodeGraph>();
         bool skipGraphChildren = (!addNodeGraphChildren && isGraph);
 
-        for (auto child : elem->getChildren())
+        for (ConstElementPtr child : elem->getChildren())
         {
             if (skipGraphChildren && child->isA<Node>())
             {
@@ -100,7 +107,7 @@ namespace
         }
 
         // Add new element to parent
-        jsonObject[elem->getName()] = jsonElem;
+        jsonObject[elem->getCategory() + JSON_CATEGORY_NAME_SEPARATOR + elem->getName()] = jsonElem;
     }
 
     // Reading utilities
@@ -117,36 +124,19 @@ namespace
                 // Handle attributes
                 if (value.is_string())
                 {
-                    string attrName = key;
-                    if (attrName.at(0) == '@')
-                        attrName.erase(0, 1);
-                    
-                    const StringSet skipKeys = { "name", "category" };
-                    if (!skipKeys.count(key))
-                    {
-                        //std::cout << indent << "Set Attribute: " << attrName << " to: " << value << std::endl;
-                        elem->setAttribute(attrName, string(value));
-                    }
+                    const string& attrName = key;
+                    elem->setAttribute(attrName, string(value));
                 }
-                else
+                else if (!JSON_NON_ELEMENTS.count(key))
                 {
-                    string name = string(key);
+                    StringVec categoryName = splitString(key, JSON_CATEGORY_NAME_SEPARATOR);
+                    const string& category = categoryName[0];
+                    const string& name = categoryName[1];
 
                     // Check for duplicate elements.
                     ConstElementPtr previous = elem->getChild(name);
                     if (!previous)
                     {
-                        // Create a new element of the proper category
-                        string category = EMPTY_STRING;
-                        for (const auto& e : value.items())
-                        {
-                            const std::string& k = e.key();
-                            if (k == "@category")
-                            {
-                                category = string(e.value());
-                            }
-                        }
-
                         if (!category.empty())
                         {
                             //std::cout << indent << "Create Element <" << category << "> Name: " << name << std::endl;
@@ -164,33 +154,31 @@ namespace
         const JSONReadOptions* readOptions = nullptr)
     {
         const string indent = "   ";
-        //if (jsonDoc.is_object())
-        {
-            // Go through all top level items
-            for (const auto& entry: jsonDoc.items())
-            {
-                // Handle top level attrs here.
 
-                const string& key = entry.key();
-                const json& value = entry.value();
-                if (value.is_string())
+        // Go through all top level items
+        for (const auto& entry: jsonDoc.items())
+        {
+            // Handle top level attributes
+            const string& key = entry.key();
+            const json& value = entry.value();
+            if (value.is_string())
+            {
+                string attrName = key;
+                if (!JSON_NON_ELEMENTS.count(attrName))
                 {
-                    string attrName = key;
-                    if (attrName.at(0) == '@')
-                        attrName.erase(0, 1);
                     //std::cout << indent << "Set Doc Attribute: " << attrName << " to: " << value << std::endl;
                     doc->setAttribute(attrName, string(value));
                 }
-                else
-                {
-                    elementFromJSON(value, doc, readOptions, indent);
-                }
             }
-            elementFromJSON(jsonDoc, doc, readOptions, indent);
-            if (!readOptions || readOptions->upgradeVersion)
+            else
             {
-                doc->upgradeVersion();
+                elementFromJSON(value, doc, readOptions, indent);
             }
+        }
+        elementFromJSON(jsonDoc, doc, readOptions, indent);
+        if (!readOptions || readOptions->upgradeVersion)
+        {
+            doc->upgradeVersion();
         }
     }
 }
@@ -244,13 +232,13 @@ void readFromJSONFile(DocumentPtr doc,
 void writeToJSONStream(DocumentPtr doc, std::ostream& stream, const JSONWriteOptions* writeOptions)
 {
     json materialXRoot;
-    materialXRoot["mimtype"] = "application/mtlx+json";
+    materialXRoot["mimetype"] = "application/mtlx+json";
 
     json documentRoot = json::object();
 
     for (const string& attrName : doc->getAttributeNames())
     {
-        documentRoot["@" + attrName] = doc->getAttribute(attrName);
+        documentRoot[attrName] = doc->getAttribute(attrName);
     }
 
     // Children are in an array
