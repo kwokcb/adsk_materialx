@@ -80,6 +80,7 @@ Graph::Graph(const std::string& materialFilename,
 
     // Set up filters load and save
     _mtlxFilter.push_back(".mtlx");
+    _mtlxFilter.push_back(".json");
     _geomFilter.push_back(".obj");
     _geomFilter.push_back(".glb");
     _geomFilter.push_back(".gltf");
@@ -4238,26 +4239,32 @@ void Graph::savePosition()
 }
 void Graph::writeText(std::string fileName, mx::FilePath filePath)
 {
-    if (filePath.getExtension() != mx::MTLX_EXTENSION)
+    if (filePath.getExtension() == mx::EMPTY_STRING)
     {
         filePath.addExtension(mx::MTLX_EXTENSION);
     }
 
-    mx::XmlWriteOptions writeOptions;
-    writeOptions.elementPredicate = getElementPredicate();
-    mx::writeToXmlFile(_graphDoc, filePath, &writeOptions);
+    if (filePath.getExtension() == mx::MTLX_EXTENSION)
+    {
+        mx::XmlWriteOptions writeOptions;
+        writeOptions.elementPredicate = getElementPredicate();
+        mx::writeToXmlFile(_graphDoc, filePath, &writeOptions);
+    }
+    else
+    {
+        mx::JSONWriteOptions jsonWriteOptions;
+        jsonWriteOptions.elementPredicate = getElementPredicate();
+        jsonWriteOptions.storeLayoutInformation = true;
+        //jsonWriteOptions.addNodeGraphChildren = false;
+        jsonWriteOptions.indent = 1;
+        jsonWriteOptions.addDefinitionInformation = false;
+        mx::writeToJSONFile(_graphDoc, filePath.asString(), &jsonWriteOptions);
 
-    mx::JSONWriteOptions jsonWriteOptions;
-    jsonWriteOptions.elementPredicate = getElementPredicate();
-    jsonWriteOptions.storeLayoutInformation = true;
-    jsonWriteOptions.addNodeGraphChildren = false;
-    jsonWriteOptions.addDefinitionInformation = false;
-    mx::writeToJSONFile(_graphDoc, filePath.asString() + "_nograph.json", &jsonWriteOptions);
+        //jsonWriteOptions.elementPredicate = nullptr;
+        //jsonWriteOptions.addNodeGraphChildren = true;
+        //mx::writeToJSONFile(_stdLib, filePath.asString() + "_stdlib.json", &jsonWriteOptions);
 
-    jsonWriteOptions.elementPredicate = nullptr;
-    jsonWriteOptions.addNodeGraphChildren = true;
-    mx::writeToJSONFile(_stdLib, filePath.asString() + "_stdlib.json", &jsonWriteOptions);
-
-    jsonWriteOptions.elementPredicate = getElementPredicate();
-    mx::writeToJSONFile(_graphDoc, filePath.asString() + ".json", &jsonWriteOptions);
+        //jsonWriteOptions.elementPredicate = getElementPredicate();
+        //mx::writeToJSONFile(_graphDoc, filePath.asString() + ".json", &jsonWriteOptions);
+    }
 }

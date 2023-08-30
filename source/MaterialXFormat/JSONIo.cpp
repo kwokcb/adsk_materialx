@@ -250,7 +250,7 @@ void writeToJSONStream(DocumentPtr doc, std::ostream& stream, const JSONWriteOpt
     materialXRoot["materialx"] = documentRoot;
 
     // Set to stream to dump of JSON object.
-    const string jsonString = materialXRoot.dump(writeOptions ? writeOptions->indent : 4);
+    const string jsonString = materialXRoot.dump(writeOptions ? writeOptions->indent : 1, ' ', true);
     stream << jsonString << std::endl;
 }
 
