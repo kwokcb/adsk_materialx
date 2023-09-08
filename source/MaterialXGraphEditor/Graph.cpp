@@ -7,7 +7,7 @@
 
 #include <MaterialXRenderGlsl/External/Glad/glad.h>
 #include <MaterialXFormat/Util.h>
-#include <MaterialXFormat/JSONIo.h>
+#include <MaterialXFormat/JsonIo.h>
 
 #include <imgui_stdlib.h>
 #include <imgui_node_editor_internal.h>
@@ -190,7 +190,6 @@ mx::DocumentPtr Graph::loadDocument(mx::FilePath filename)
             try
             {
                 readFromXmlFile(doc, resolvedFilename, searchPath, options);
-                readFromJSONFile(doc, resolvedFilename);
             }
             catch (mx::Exception& e)
             {
@@ -209,13 +208,13 @@ mx::DocumentPtr Graph::loadDocument(mx::FilePath filename)
     {
         if (!filename.isEmpty())
         {
-            if (filename.getExtension() == "json")
+            if (filename.getExtension() == mx::JSON_EXTENSION)
             {
-                mx::readFromJSONFile(doc, filename, _searchPath);
+                mx::readFromJsonFile(doc, filename, _searchPath);
             }
             else
             {
-            mx::readFromXmlFile(doc, filename, _searchPath, &readOptions);
+                mx::readFromXmlFile(doc, filename, _searchPath, &readOptions);
             }
             doc->importLibrary(_stdLib);
             std::string message;
@@ -4363,22 +4362,13 @@ void Graph::saveDocument(mx::FilePath filePath)
         mx::XmlWriteOptions writeOptions;
         writeOptions.elementPredicate = getElementPredicate();
         mx::writeToXmlFile(writeDoc, filePath, &writeOptions);
-    }
-    else
+    } 
+    else if (filePath.getExtension() == mx::JSON_EXTENSION)
     {
-        mx::JSONWriteOptions jsonWriteOptions;
+        mx::JsonWriteOptions jsonWriteOptions;
         jsonWriteOptions.elementPredicate = getElementPredicate();
-        jsonWriteOptions.storeLayoutInformation = true;
-        //jsonWriteOptions.addNodeGraphChildren = false;
         jsonWriteOptions.indent = 1;
-        jsonWriteOptions.addDefinitionInformation = false;
-        mx::writeToJSONFile(_graphDoc, filePath.asString(), &jsonWriteOptions);
-
-        //jsonWriteOptions.elementPredicate = nullptr;
-        //jsonWriteOptions.addNodeGraphChildren = true;
-        //mx::writeToJSONFile(_stdLib, filePath.asString() + "_stdlib.json", &jsonWriteOptions);
-
-        //jsonWriteOptions.elementPredicate = getElementPredicate();
-        //mx::writeToJSONFile(_graphDoc, filePath.asString() + ".json", &jsonWriteOptions);
+        jsonWriteOptions.indentCharacter = '\t';
+        mx::writeToJsonFile(_graphDoc, filePath.asString(), &jsonWriteOptions);
     }
 }
