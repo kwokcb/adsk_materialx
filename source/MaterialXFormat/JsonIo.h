@@ -95,6 +95,7 @@ MX_FORMAT_API void readFromJsonFile(DocumentPtr doc,
 
 /// @}
 /// @name Write Functions
+/// @{
 
 /// Write a Document as JSON to the given filename.
 /// @param doc The Document to be written.
@@ -122,9 +123,6 @@ MX_FORMAT_API string writeToJsonString(DocumentPtr doc, const JsonWriteOptions* 
 MX_FORMAT_API void writeToJsonStream(DocumentPtr doc, std::ostream& stream, const JsonWriteOptions* writeOptions);
 
 /// @}
-
-/// @}
-
 
 MATERIALX_NAMESPACE_END
 
