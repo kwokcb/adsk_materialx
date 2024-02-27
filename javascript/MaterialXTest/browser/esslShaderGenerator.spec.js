@@ -33,7 +33,10 @@ describe('Generate ESSL Shaders', function ()
         const doc = createStandardSurfaceMaterial(mx);
 
         const gen = new mx.EsslShaderGenerator();
+        const genOSL = new mx.OslShaderGenerator();
         const genContext = new mx.GenContext(gen);
+        const genContextOSL = new mx.GenContext(gen);
+        const stdlib2 = mx.loadStandardLibraries(genContextOSL);
         const stdlib = mx.loadStandardLibraries(genContext);
 
         doc.importLibrary(stdlib);
@@ -45,6 +48,11 @@ describe('Generate ESSL Shaders', function ()
 
             const fShader = mxShader.getSourceCode("pixel");
             const vShader = mxShader.getSourceCode("vertex");
+
+            const mxShaderOSL = gen.generate(elem.getNamePath(), elem, genContext);
+            const fShaderOSL = mxShaderOSL.getSourceCode("pixel");
+            console.log('------------------- OSL Shader ------------\n', fShaderOSL);
+            console.log('--------------------------------------------')
 
             const glVertexShader = gl.createShader(gl.VERTEX_SHADER);
             gl.shaderSource(glVertexShader, vShader);
