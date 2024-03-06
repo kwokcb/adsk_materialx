@@ -9,6 +9,7 @@ namespace py = pybind11;
 
 void bindPyFile(py::module& mod);
 void bindPyXmlIo(py::module& mod);
+void bindPyGraphIo(py::module& mod);
 void bindPyUtil(py::module& mod);
 
 PYBIND11_MODULE(PyMaterialXFormat, mod)
@@ -20,5 +21,6 @@ PYBIND11_MODULE(PyMaterialXFormat, mod)
 
     bindPyFile(mod);
     bindPyXmlIo(mod);
+    bindPyGraphIo(mod);
     bindPyUtil(mod);
 }
