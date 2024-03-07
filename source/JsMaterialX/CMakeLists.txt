@@ -3,6 +3,9 @@ set(FORMAT ${CMAKE_CURRENT_SOURCE_DIR}/JsMaterialXFormat/)
 set(GENSHADER ${CMAKE_CURRENT_SOURCE_DIR}/JsMaterialXGenShader/)
 set(GENESSL ${CMAKE_CURRENT_SOURCE_DIR}/JsMaterialXGenEssl/)
 set(GENOSL ${CMAKE_CURRENT_SOURCE_DIR}/JsMaterialXGenOsl/)
+set(GENGLSL ${CMAKE_CURRENT_SOURCE_DIR}/JsMaterialXGenGlsl/)
+set(GENMSL ${CMAKE_CURRENT_SOURCE_DIR}/JsMaterialXGenMsl/)
+set(GENVK ${CMAKE_CURRENT_SOURCE_DIR}/JsMaterialXGenVk/)
 
 set(SOURCE_FOLDER ${CMAKE_SOURCE_DIR}/source)
 
@@ -41,6 +44,9 @@ set(GENSHADER_DEPS ${GENSHADER}JsGenContext.cpp
 
 set(GENESSL_DEPS ${GENESSL}JsEsslShaderGenerator.cpp)
 set(GENOSL_DEPS ${GENOSL}JsOslShaderGenerator.cpp)
+set(GENGLSL_DEPS ${GENGLSL}JsGlslShaderGenerator.cpp)
+set(GENMSL_DEPS ${GENMSL}JsMslShaderGenerator.cpp)
+set(GENVK_DEPS ${GENVK}JsVkShaderGenerator.cpp)
 
 # Linker flags
 set(JS_LINK_FLAGS_CORE "")
@@ -89,7 +95,11 @@ add_executable(JsMaterialXGenShader MaterialXLib.cpp
     ${FORMAT_DEPS}
     ${GENSHADER_DEPS}
     ${GENESSL_DEPS}
-    ${GENOSL_DEPS})
+    ${GENOSL_DEPS}
+    ${GENGLSL_DEPS}
+    ${GENMSL_DEPS}
+    ${GENVK_DEPS}
+    )
 
 set_target_properties(JsMaterialXCore
     PROPERTIES
@@ -118,6 +128,7 @@ target_link_libraries(JsMaterialXGenShader
     PUBLIC MaterialXGenShader
     PUBLIC MaterialXGenGlsl
     PUBLIC MaterialXGenOsl
+    PUBLIC MaterialXGenMsl
     PRIVATE ${CMAKE_DL_LIBS})
 
 # Install the JavaScript output

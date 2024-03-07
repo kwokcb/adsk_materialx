@@ -31,29 +31,52 @@ describe('Generate ESSL Shaders', function ()
     it('Compile Shaders', () =>
     {
         const doc = createStandardSurfaceMaterial(mx);
+        const elem = mx.findRenderableElement(doc);
 
         const gen = new mx.EsslShaderGenerator();
-        const genOSL = new mx.OslShaderGenerator();
+        const genGLSL = new mx.GlslShaderGenerator();
+        const genMSL = new mx.MslShaderGenerator();
+        const genVK = new mx.VkShaderGenerator();
+
+        const genContextGLSL = new mx.GenContext(genGLSL);
+        const genContextMSL = new mx.GenContext(genMSL);
+        const genContextVK = new mx.GenContext(genVK);
+
+        //const stdlib3 = mx.loadStandardLibraries(genContextGLSL);
+        //const stdlib4 = mx.loadStandardLibraries(genContextMSL);
+        //const stdlib5 = mx.loadStandardLibraries(genContextVK);
+
         const genContext = new mx.GenContext(gen);
-        const genContextOSL = new mx.GenContext(gen);
-        const stdlib2 = mx.loadStandardLibraries(genContextOSL);
         const stdlib = mx.loadStandardLibraries(genContext);
-
         doc.importLibrary(stdlib);
-
-        const elem = mx.findRenderableElement(doc);
         try
         {
-            const mxShader = gen.generate(elem.getNamePath(), elem, genContext);
+            const genOSL = new mx.OslShaderGenerator();
+            const genContextOSL = new mx.GenContext(genOSL);
+            const stdlib2 = mx.loadStandardLibraries(genContextOSL);
+            const mxShaderOSL = genOSL.generate(elem.getNamePath(), elem, genContextOSL);
+            const fShaderOSL = mxShaderOSL.getSourceCode("pixel");
+            console.log('------------------- START OSL Shader ------------\n', fShaderOSL);
+            console.log('------------------- END OSL Shader ------------\n');
+    
+            const mxShaderGLSL = genGLSL.generate(elem.getNamePath(), elem, genContextGLSL);
+            const fShaderGLSL = mxShaderGLSL.getSourceCode("pixel");
+            console.log('------------------- START GLSL Shader ------------\n', fShaderGLSL);
+            console.log('------------------- END GLSL Shader ------------\n');
 
+            const mxShaderMSL = genMSL.generate(elem.getNamePath(), elem, genContextMSL);
+            const fShaderMSL = mxShaderMSL.getSourceCode("pixel");
+            console.log('------------------- Start Metal Shader ------------\n', fShaderMSL);
+            console.log('------------------- End Metal Shader ------------\n', fShaderMSL);
+
+            const mxShaderVK = genVK.generate(elem.getNamePath(), elem, genContextVK);
+            const fShaderVK = mxShaderVK.getSourceCode("pixel");
+            console.log('------------------- START Vulkan Shader ------------\n', fShaderVK);
+            console.log('------------------- END Vulkan Shader ------------\n');
+
+            const mxShader = gen.generate(elem.getNamePath(), elem, genContext);
             const fShader = mxShader.getSourceCode("pixel");
             const vShader = mxShader.getSourceCode("vertex");
-
-            const mxShaderOSL = gen.generate(elem.getNamePath(), elem, genContext);
-            const fShaderOSL = mxShaderOSL.getSourceCode("pixel");
-            console.log('------------------- OSL Shader ------------\n', fShaderOSL);
-            console.log('--------------------------------------------')
-
             const glVertexShader = gl.createShader(gl.VERTEX_SHADER);
             gl.shaderSource(glVertexShader, vShader);
             gl.compileShader(glVertexShader);
