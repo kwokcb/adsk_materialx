@@ -11,7 +11,7 @@
 namespace ems = emscripten;
 namespace mx = MaterialX;
 
-EMSCRIPTEN_BINDINGS(OslShaderGenerator)
+EMSCRIPTEN_BINDINGS(GlslShaderGenerator)
 {
     ems::class_<mx::GlslShaderGenerator, ems::base<mx::ShaderGenerator>>("GlslShaderGenerator")
         .smart_ptr_constructor("GlslShaderGenerator", &std::make_shared<mx::GlslShaderGenerator>)
