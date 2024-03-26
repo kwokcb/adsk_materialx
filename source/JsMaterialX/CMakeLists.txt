@@ -90,16 +90,27 @@ add_executable(JsMaterialXCore MaterialXLib.cpp
     ${CORE_DEPS}
     ${FORMAT_DEPS})
 
-add_executable(JsMaterialXGenShader MaterialXLib.cpp
+add_executable(JsMaterialXGenShader MaterialXLib.)
+
+target_link_libraries(JsMaterialXGenShader 
     ${CORE_DEPS}
     ${FORMAT_DEPS}
     ${GENSHADER_DEPS}
     ${GENESSL_DEPS}
-    ${GENOSL_DEPS}
-    ${GENGLSL_DEPS}
-    ${GENMSL_DEPS}
-    ${GENVK_DEPS}
-    )
+)
+
+if (MATERIALX_BUILD_GEN_OSL)
+    target_link_libraries(JsMaterialXGenShader ${GENOSL_DEPS})
+endif()
+if (MATERIALX_BUILD_GEN_GLSL)
+    target_link_libraries(JsMaterialXGenShader ${GENGLSL_DEPS})
+endif()
+if (MATERIALX_BUILD_GEN_MSL)
+    target_link_libraries(JsMaterialXGenShader ${GENMSL_DEPS})
+endif()
+if (MATERIALX_BUILD_GEN_VK)
+    target_link_libraries(JsMaterialXGenShader ${GENVK_DEPS})
+endif()
 
 set_target_properties(JsMaterialXCore
     PROPERTIES
@@ -127,9 +138,13 @@ target_link_libraries(JsMaterialXGenShader
     PUBLIC MaterialXFormat
     PUBLIC MaterialXGenShader
     PUBLIC MaterialXGenGlsl
-    PUBLIC MaterialXGenOsl
-    PUBLIC MaterialXGenMsl
     PRIVATE ${CMAKE_DL_LIBS})
+if (MATERIALX_BUILD_GEN_OSL)
+    target_link_libraries(JsMaterialXGenShader PUBLIC MaterialXGenOsl)
+endif()
+if (MATERIALX_BUILD_GEN_MSL)
+    target_link_libraries(JsMaterialXGenShader PUBLIC MaterialXGenMsl)
+endif()
 
 # Install the JavaScript output
 install(TARGETS JsMaterialXCore DESTINATION "JavaScript/MaterialX")
