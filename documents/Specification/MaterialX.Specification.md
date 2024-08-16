@@ -2333,6 +2333,26 @@ It is permissible to define multiple nodegraph- and/or file-based implementation
     <output name="out" type="color4" nodename="n2"/>
   </nodegraph>
 ```
+```mermaid
+graph TB
+    subgraph NG_blendadd_color4
+    NG_blendadd_color4_out([output:color4])
+    style NG_blendadd_color4_out  fill:#09D, color:#FFF
+    NG_blendadd_color4_n1[multiply:color4]
+    NG_blendadd_color4_n2[add:color4]
+    NG_blendadd_color4_fg([input:color4])
+    style NG_blendadd_color4_fg  fill:#09D, color:#FFF
+    NG_blendadd_color4_amount([input:float])
+    style NG_blendadd_color4_amount  fill:#09D, color:#FFF
+    NG_blendadd_color4_bg([input:color4])
+    style NG_blendadd_color4_bg  fill:#09D, color:#FFF
+    end
+    NG_blendadd_color4_fg --"in1"--> NG_blendadd_color4_n1
+    NG_blendadd_color4_amount --"in2"--> NG_blendadd_color4_n1
+    NG_blendadd_color4_n1 --"in1"--> NG_blendadd_color4_n2
+    NG_blendadd_color4_bg --"in2"--> NG_blendadd_color4_n2
+    NG_blendadd_color4_n2 --> NG_blendadd_color4_out
+ ```   
 
 The inputs of the nodegraph are declared by the &lt;nodedef>, and the nodes within the nodegraph reference those inputs using `interfacename` attributes.  The "fg" and "bg" inputs provide default values which are used if an input is left unconnected when the custom node is used, and the "amount" input defines a default value which will be used if invocations of the node do not explicitly provide a value for "amount".
 
