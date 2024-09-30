@@ -7,16 +7,13 @@ def main():
     parser = argparse.ArgumentParser(description="Test if two documents are functionally equivalent.")
     parser.add_argument(dest="inputFilename", help="Filename of the input document.")
     parser.add_argument(dest="inputFilename2", help="Filename of the input document to compare against.")
-    parser.add_argument('-sa', '--skipAttributes', nargs='+', help="Skip comparisons for attribute. More than one attribute can be specified")
-    parser.add_argument('-sv', '--skipValueComparisons', action='store_true', help="Skip value comparisons. Default is to use value comparisons")    
-    parser.add_argument('-p', '--precision', type=int, default=None, help="Set the floating precision for comparisons.", )
+    parser.add_argument('-sa', '--skipAttributes', nargs='+', help="List of attributes to exclude from comparisons.")
+    parser.add_argument('-sv', '--skipValueComparisons', action='store_true', help="Skip value comparisons. Default is False.")    
+    parser.add_argument('-p', '--precision', type=int, default=None, help="Specify the precision for floating-point comparisons.", )
 
     opts = parser.parse_args()
 
     # Check if both files exist
-    if not opts.inputFilename or not opts.inputFilename2:
-        print("Please provide two filenames to compare.")
-        sys.exit(0)
     if not os.path.isfile(opts.inputFilename):
         print(f"File {(opts.inputFilename)} does not exist.")
         sys.exit(0)
@@ -40,18 +37,18 @@ def main():
 
     print('Version: {}.{}'.format(*doc.getVersionIntegers()))    
 
-    eopts = mx.ElementEquivalenceOptions()
+    equivalence_opts = mx.ElementEquivalenceOptions()
     if opts.skipAttributes:
         for attr in opts.skipAttributes:
-            eopts.skipAttributes.add(attr)
+            equivalence_opts.skipAttributes.add(attr)
     if opts.skipValueComparisons:
-        eopts.skipValueComparisons = True
+        equivalence_opts.skipValueComparisons = True
     if opts.precision:
-        eopts.precision = opts.precision
+        equivalence_opts.precision = opts.precision
 
     results = mx.ElementEquivalenceResult()
-    equivalent = doc.isEquivalent(doc2, eopts)
-    equivalent = doc.isEquivalent(doc2, eopts, results)
+    equivalent = doc.isEquivalent(doc2, equivalence_opts)
+    equivalent = doc.isEquivalent(doc2, equivalence_opts, results)
     if equivalent:
         print(f"Documents are equivalent")
     else:
