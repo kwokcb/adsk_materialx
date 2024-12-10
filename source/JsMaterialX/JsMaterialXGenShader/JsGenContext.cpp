@@ -19,7 +19,7 @@ namespace ems = emscripten;
 namespace mx = MaterialX;
 
 /// Initialize the given generation context
-void initContext(mx::GenContext& context, mx::FileSearchPath searchPath, mx::DocumentPtr stdLib, mx::UnitConverterRegistryPtr unitRegistry)
+void jsInitializeContext(mx::GenContext& context, mx::FileSearchPath searchPath, mx::DocumentPtr stdLib)
 {
     // Register the search path for shader source code.
     context.registerSourceCodeSearchPath(searchPath);
@@ -37,6 +37,14 @@ void initContext(mx::GenContext& context, mx::FileSearchPath searchPath, mx::Doc
     context.getShaderGenerator().setColorManagementSystem(cms);
 
     // Initialize unit management.
+    mx::UnitConverterRegistryPtr unitRegistry(mx::UnitConverterRegistry::create());
+    mx::UnitTypeDefPtr distanceTypeDef = stdLib->getUnitTypeDef("distance");
+    mx::LinearUnitConverterPtr distanceUnitConverter = mx::LinearUnitConverter::create(distanceTypeDef);
+    unitRegistry->addUnitConverter(distanceTypeDef, distanceUnitConverter);
+    mx::UnitTypeDefPtr angleTypeDef = stdLib->getUnitTypeDef("angle");
+    mx::LinearUnitConverterPtr angleConverter = mx::LinearUnitConverter::create(angleTypeDef);
+    unitRegistry->addUnitConverter(angleTypeDef, angleConverter);
+
     mx::UnitSystemPtr unitSystem = mx::UnitSystem::create(context.getShaderGenerator().getTarget());
     unitSystem->loadLibrary(stdLib);
     unitSystem->setUnitConverterRegistry(unitRegistry);
@@ -44,13 +52,11 @@ void initContext(mx::GenContext& context, mx::FileSearchPath searchPath, mx::Doc
     context.getOptions().targetDistanceUnit = "meter";
 }
 
-/// Tries to load the standard libaries and initialize the given generation context. The loaded libraries are added to the returned document
-mx::DocumentPtr loadStandardLibraries(mx::GenContext& context)
+/// Tries to load the standard libraries and initialize the given generation context. 
+/// The loaded libraries are added to the returned document.
+mx::DocumentPtr jsLoadStandardLibraries(mx::GenContext& context)
 {
     mx::DocumentPtr stdLib;
-    mx::LinearUnitConverterPtr _distanceUnitConverter;
-    mx::StringVec _distanceUnitOptions;
-    mx::UnitConverterRegistryPtr unitRegistry(mx::UnitConverterRegistry::create());
     mx::FilePathVec libraryFolders = { "libraries" };
     mx::FileSearchPath searchPath;
     searchPath.append("/");
@@ -71,24 +77,7 @@ mx::DocumentPtr loadStandardLibraries(mx::GenContext& context)
         return nullptr;
     }
 
-    // Initialize unit management.
-    mx::UnitTypeDefPtr distanceTypeDef = stdLib->getUnitTypeDef("distance");
-    _distanceUnitConverter = mx::LinearUnitConverter::create(distanceTypeDef);
-    unitRegistry->addUnitConverter(distanceTypeDef, _distanceUnitConverter);
-    mx::UnitTypeDefPtr angleTypeDef = stdLib->getUnitTypeDef("angle");
-    mx::LinearUnitConverterPtr angleConverter = mx::LinearUnitConverter::create(angleTypeDef);
-    unitRegistry->addUnitConverter(angleTypeDef, angleConverter);
-
-    // Create the list of supported distance units.
-    auto unitScales = _distanceUnitConverter->getUnitScale();
-    _distanceUnitOptions.resize(unitScales.size());
-    for (auto unitScale : unitScales)
-    {
-        int location = _distanceUnitConverter->getUnitAsInteger(unitScale.first);
-        _distanceUnitOptions[location] = unitScale.first;
-    }
-
-    initContext(context,searchPath, stdLib, unitRegistry);
+    jsInitializeContext(context, searchPath, stdLib);
 
     return stdLib;
 }
@@ -101,5 +90,6 @@ EMSCRIPTEN_BINDINGS(GenContext)
         .function("getOptions", PTR_RETURN_OVERLOAD(mx::GenOptions& (mx::GenContext::*)(), &mx::GenContext::getOptions), ems::allow_raw_pointers())
         ;
 
-    ems::function("loadStandardLibraries", &loadStandardLibraries);
+    ems::function("loadStandardLibraries", &jsLoadStandardLibraries);
+    ems::function("initializeContext", &jsInitializeContext);
 }
