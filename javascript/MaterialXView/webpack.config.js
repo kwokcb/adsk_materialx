@@ -88,5 +88,22 @@ module.exports = {
                 { from: "../build/bin/JsMaterialXGenShader.data" },
             ],
         }),
-    ]
+    ],
+    devServer: {
+        port: 8080,
+        client: {
+            logging: 'none', // Disable client-side logs
+            overlay: false,  // Disable error overlay in the browser
+        },
+        static: {
+            watch: false, // Prevent logs for static files watching
+        },
+        compress: true, // Suppress additional middleware logs
+        devMiddleware: {
+            stats: 'errors-only', // Show only errors in logs
+        },
+    },
+    infrastructureLogging: {
+        level: 'error', // Show only error-level messages
+    },
 };
