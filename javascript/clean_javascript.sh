@@ -1,3 +1,10 @@
+#
+# Sample script to clean the Javascript package for MaterialX
+# It will rebuild the build area for the package as well as remove
+# and installed Node modules installed for MaterialXTest and MaterialXView
+#
+# The default execution location is assumed to be the root of the MaterialX repository.
+#
 DEFAULT_MATERIALX_LOCATION="."
 MATERIALX_LOCATION=${1:-$DEFAULT_MATERIALX_LOCATION}
 

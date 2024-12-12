@@ -1,3 +1,11 @@
+#
+# Sample script for building the Javascript package for MateriaX
+# as well as the MaterialX Interactive Viewer and execution of unit tests.
+# It is assumed that emscripten and Node have been installed on the system.
+#
+# The default execution location is assumed to be the root of the MaterialX repository.
+# with the emscripten SDK located in an "emsdk" folder under the parent folder
+# of the MaterialX repository.
 
 # Default locations
 DEFAULT_EMSDK_LOCATION="./emsdk/"
