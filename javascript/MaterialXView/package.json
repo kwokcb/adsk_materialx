@@ -4,7 +4,7 @@
   "description": "MaterialX Web Viewer",
   "main": "source/index.js",
   "scripts": {
-    "start": "webpack serve",
+    "start": "webpack serve && echo 'Server is running. Open your browser to http://localhost:8080'",
     "build": "webpack"
   },
   "author": "",

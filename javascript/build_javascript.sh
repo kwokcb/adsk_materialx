@@ -35,6 +35,7 @@ if [ $? -ne 0 ]; then
 fi
 
 echo "--------------------- Run JavaScript Tests ---------------------"
+pushd .
 cd javascript/MaterialXTest
 npm install
 npm audit fix
@@ -46,7 +47,7 @@ npm run test:browser
 if [ $? -ne 0 ]; then
     read -p "Javascript browser tests failed. Exit or press any key to continue"
 fi
-cd ..
+popd
 
 echo "--------------------- Run Interactive Viewer ---------------------"
 cd javascript/MaterialXView
@@ -57,4 +58,5 @@ if [ $? -ne 0 ]; then
     read -p "Viewer build failed. Exit or press any key to continue"
 fi
 npm run start
+
 
