@@ -17,8 +17,8 @@ MATERIALX_LOCATION=${2:-$DEFAULT_MATERIALX_LOCATION}
 
 # Check if EMSDK_LOCATION with emsdk file exists in the folder
 if [ ! -f "$EMSDK_LOCATION/emsdk" ]; then
-    read -p "Error: EMSDK_LOCATION is not a valid emsdk directory. Press any key to exit"
-    exit 1
+    echo "Error: EMSDK_LOCATION is not a valid emsdk directory. Exiting script."
+    return 1
 fi
 
 echo "--------------------- Setup Emscripten ---------------------"
@@ -31,23 +31,21 @@ source $EMSDK_LOCATION/emsdk_env.sh
 
 echo "--------------------- Build MaterialX ---------------------"
 cd $MATERIALX_LOCATION
-# if platform is not windows
-#!/bin/bash
 
 if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" || "$OSTYPE" == "win32" ]] || [[ "$(uname -s)" == MINGW* || "$(uname -s)" == CYGWIN* ]]; then
     cmake -S . -B javascript/build -DMATERIALX_BUILD_JS=ON -DMATERIALX_EMSDK_PATH=$EMSDK_LOCATION -G Ninja
 else
-    cmake -S . -B javascript/build -DMATERIALX_BUILD_JS=ON -DMATERIALX_EMSDK_PATH=$EMSDK_LOCATION
+    cmake -S . -B javascript/build -DMATERIALX_BUILD_JS=ON -DMATERIALX_EMSDK_PATH=$EMSDK_LOCATION -G Ninja
 fi
 if [ $? -ne 0 ]; then
     read -p "Error: cmake configuration failed. Exit or press any key to exit"
-    exit 1
+    return 1
 fi
 
 cmake --build javascript/build --target install --config RelWithDebInfo --parallel 2
 if [ $? -ne 0 ]; then
-    read -p "Error: build failed. Press any key to exit"
-    exit 1
+    echo "Error: build failed. Press any key to exit"
+    return 1
 fi
 
 echo "--------------------- Run JavaScript Tests ---------------------"
@@ -57,11 +55,13 @@ npm install
 npm audit fix
 npm run test
 if [ $? -ne 0 ]; then
-    read -p "Javascript core tests failed. Exit or press any key to continue"
+    echo "Javascript core tests failed. Exit or press any key to continue"
+    return 1
 fi
 npm run test:browser
 if [ $? -ne 0 ]; then
-    read -p "Javascript browser tests failed. Exit or press any key to continue"
+    echo "Javascript browser tests failed. Exit or press any key to continue"
+    return 1
 fi
 popd
 
@@ -71,7 +71,8 @@ npm install
 npm audit fix
 npm run build
 if [ $? -ne 0 ]; then
-    read -p "Viewer build failed. Exit or press any key to continue"
+    echo "Viewer build failed. Exit or press any key to continue"
+    return 1
 fi
 npm run start
 
