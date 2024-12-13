@@ -25,12 +25,20 @@ echo "--------------------- Setup Emscripten ---------------------"
 echo "Using EMSDK_LOCATION: $EMSDK_LOCATION"
 echo "Using MATERIALX_LOCATION: $MATERIALX_LOCATION"
 
-$EMSDK_LOCATION/emsdk install 2.0.20
-$EMSDK_LOCATION/emsdk activate 2.0.20
+$EMSDK_LOCATION/emsdk install 2.0.21
+$EMSDK_LOCATION/emsdk activate 2.0.21
+source $EMSDK_LOCATION/emsdk_env.sh
 
 echo "--------------------- Build MaterialX ---------------------"
 cd $MATERIALX_LOCATION
-cmake -S . -B javascript/build -DMATERIALX_BUILD_JS=ON -DMATERIALX_EMSDK_PATH=$EMSDK_LOCATION -G Ninja
+# if platform is not windows
+#!/bin/bash
+
+if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" || "$OSTYPE" == "win32" ]] || [[ "$(uname -s)" == MINGW* || "$(uname -s)" == CYGWIN* ]]; then
+    cmake -S . -B javascript/build -DMATERIALX_BUILD_JS=ON -DMATERIALX_EMSDK_PATH=$EMSDK_LOCATION -G Ninja
+else
+    cmake -S . -B javascript/build -DMATERIALX_BUILD_JS=ON -DMATERIALX_EMSDK_PATH=$EMSDK_LOCATION
+fi
 if [ $? -ne 0 ]; then
     read -p "Error: cmake configuration failed. Exit or press any key to exit"
     exit 1
